@@ -21,6 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .domain import Circuit, DesignSpec, Scorecard, SimulationResult
 from .experiments import ExperimentResult, ExperimentScore, ExperimentSpec, GeneralCircuitIR
+from .montecarlo import NOTICE as MONTE_CARLO_NOTICE
+from .montecarlo import MonteCarloRequest
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False,
                             idempotent_hint=True, open_world_hint=False)
@@ -149,6 +151,23 @@ supported R/L/C and catalog-device connections, not every SPICE device or analys
    returned circuit with evaluate_experiment, then finalize_experiment and require
    verified and feasible. The CLI shortcut is `spiceharness experiment rescore-kicad
    RUN_ID path.kicad_sch`. See docs/kicad-import.md for supported edits.
+8. Optional robustness study after finalize_experiment: run_monte_carlo(run_id, request)
+   samples the R/C/L values (and optionally ESR/DCR) of one saved candidate (default: the
+   verified winner; request.candidate_id selects another) and measures every sample with real
+   ngspice. Ask the user for the part tolerances; do not assume them (electrolytic capacitors
+   are often +/-20 %). Call run_monte_carlo repeatedly with the same request until state is
+   no longer "running"; the same request resumes, a larger samples value extends the study as
+   an exact prefix, and a new seed is an independent replicate. Report N, seed, distribution,
+   tolerances, the yield with its Wilson interval, the limiting requirement and the
+   worst-sample values, and state: "statistical estimate, not a worst-case proof;
+   host/protected parts, device models, temperature and sources were held at nominal." For
+   analysis-only runs report statistics only: "Not scored (analysis only, no acceptance
+   requirements)"; the yield is null. A study never changes ranking, the winner, verification
+   or run.json, and has its own budget separate from the 20-evaluation / 180 s session limits.
+   get_monte_carlo(run_id, study_id) returns the saved study with histograms. If state is
+   nominal_mismatch, identity_mismatch or aborted there is no yield: report that, not a pass
+   fraction; truncated or cancelled studies are partial. cancel_experiment also stops running
+   studies of that run at the next sample; call run_monte_carlo again to resume them.
 
 Sessions allow at most 20 evaluations including a reserved fresh verification,
 a 20-second evaluator timeout and 180 seconds of server work. Actual completed
@@ -268,6 +287,26 @@ class ExperimentRunResponse(BaseModel):
     candidates: list[ExperimentCandidateResponse] = Field(default_factory=list)
     leaderboard: list[ExperimentCandidateResponse] = Field(default_factory=list)
     result: ExperimentFinalResponse | None = None
+
+
+class MonteCarloResponse(BaseModel):
+    """A saved Monte Carlo study snapshot (statistical estimate, not a worst-case proof)."""
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    study_id: str | None = None
+    run_id: str | None = None
+    candidate_id: str | None = None
+    state: str | None = None
+    completed: int | None = None
+    target: int | None = None
+    yield_: dict[str, Any] | None = Field(default=None, alias="yield")
+    requirements: list[dict[str, Any]] = Field(default_factory=list)
+    worst_sample: dict[str, Any] | None = None
+    notice: str | None = None
+    assumptions: list[str] = Field(default_factory=list)
+    studies: list[dict[str, Any]] | None = None
+    viewer_command: str | None = None
+    montecarlo_command: str | None = None
+    next_step: str | None = None
 
 
 class ExportResponse(BaseModel):
@@ -397,6 +436,9 @@ def create_server(workspace: Path | str = Path("."), config: Path | str | None =
                       "For textbook analysis and supported general RLC/catalog-device wiring, read "
                       "spiceharness://experiments or use investigate_circuit, then start_experiment, "
                       "evaluate_experiment, get_experiment, and finalize_experiment. "
+                      "run_monte_carlo gives an optional statistical (not worst-case) R/C/L tolerance yield "
+                      "study of a saved candidate after finalization; ask the user for tolerances and repeat "
+                      "the call until its state is no longer running. "
                       "After the user edits an exported KiCad schematic, import_kicad_schematic reads it back "
                       "(read-only) so the edited IR can be evaluated in a new run under the same frozen spec. "
                       "MCP opens no window: display run_id, dashboard_command and viewer_command to the user. "
@@ -527,6 +569,47 @@ def create_server(workspace: Path | str = Path("."), config: Path | str | None =
     def get_experiment(run_id: str) -> ExperimentRunResponse:
         """Inspect saved general experiment evidence, including fresh verification and ranking."""
         return experiment_response(experiment_manager.get_experiment(run_id))
+
+    def monte_carlo_response(study: dict[str, Any] | list[dict[str, Any]], run_id: str) -> MonteCarloResponse:
+        python = str(Path(sys.executable).absolute())
+        workspace_arg = str(experiment_manager.workspace)
+        viewer = shlex.join([python, "-m", "spiceharness", "view", run_id, "--workspace", workspace_arg])
+        if isinstance(study, list):
+            return MonteCarloResponse(
+                run_id=run_id, studies=study, viewer_command=viewer, notice=MONTE_CARLO_NOTICE,
+                next_step="Several studies exist; call get_monte_carlo with a study_id for the full saved study.")
+        shown = shlex.join([python, "-m", "spiceharness", "experiment", "montecarlo-show", run_id,
+                            study["study_id"], "--workspace", workspace_arg])
+        state = study["state"]
+        if state == "running":
+            step = "State is running: call run_monte_carlo again with the same request to continue."
+        elif state in ("nominal_mismatch", "identity_mismatch", "aborted"):
+            step = (f"State is {state}: the study did NOT produce a yield. Do not report a pass fraction. "
+                    "Quote the reason (see error/nominal), explain that simulator, model files or the circuit "
+                    "changed or the circuit is unmeasurable under jitter, and offer a new study with a new seed.")
+        elif state in ("truncated", "cancelled"):
+            step = (f"State is {state}: statistics cover only {study['progress']['completed']} of "
+                    f"{study['progress']['target']} samples. Say it is partial; call run_monte_carlo again with "
+                    "the same request (and a larger max_seconds if truncated) to resume.")
+        elif study.get("analysis_only"):
+            step = ("Report statistics only: Not scored (analysis only, no acceptance requirements); the yield "
+                    "is null. Quote the notice, assumptions, N and seed.")
+        else:
+            step = ("Quote the notice and assumptions, N, seed, yield with its Wilson interval and the "
+                    "state. This statistical estimate never changes ranking or verification.")
+        return MonteCarloResponse.model_validate({
+            **study, "completed": study["progress"]["completed"], "target": study["progress"]["target"],
+            "viewer_command": viewer, "montecarlo_command": shown, "next_step": step})
+
+    @server.tool(annotations=LOCAL_WRITE)
+    def run_monte_carlo(run_id: str, request: MonteCarloRequest = MonteCarloRequest()) -> MonteCarloResponse:  # noqa: B008
+        """Statistical R/C/L tolerance study of a saved candidate; repeat with the same request until state != running."""
+        return monte_carlo_response(experiment_manager.run_montecarlo(run_id, request), run_id)
+
+    @server.tool(annotations=READ_ONLY)
+    def get_monte_carlo(run_id: str, study_id: str | None = None) -> MonteCarloResponse:
+        """Read a saved Monte Carlo study, with histograms and the worst sample; runs nothing."""
+        return monte_carlo_response(experiment_manager.get_montecarlo(run_id, study_id), run_id)
 
     @server.tool(annotations=LOCAL_WRITE)
     def cancel_experiment(run_id: str) -> ExperimentRunResponse:

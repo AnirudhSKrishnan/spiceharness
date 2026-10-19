@@ -422,12 +422,17 @@ def _score(circuit: GeneralCircuitIR, spec: ExperimentSpec, metrics: dict[str, f
 
 class ExperimentEvaluator:
     def __init__(self, artifact_root: str | Path | None = None, executable: str = "ngspice",
-                 timeout_s: float = 20, model_catalog: dict | str | Path | None = None):
+                 timeout_s: float = 20, model_catalog: dict | str | Path | None = None,
+                 *, lean: bool = False, simulator_version: str | None = None):
         if not math.isfinite(timeout_s) or not 0 < timeout_s <= 20:
             raise ValueError("experiment timeout must be positive and at most 20 seconds total")
         self.timeout_s = timeout_s
         self.artifact_root = Path(artifact_root) if artifact_root else None
         self.executable = executable
+        # Lean mode (default off) is for Monte Carlo samples: same validation, deck
+        # generation, parsing, measurement and scoring path, but no artifacts are kept.
+        self.lean = lean
+        self.simulator_version = simulator_version
         self.simulator = NgSpiceSimulator(model_catalog=model_catalog)
 
     def validate(self, circuit: GeneralCircuitIR, spec: ExperimentSpec) -> dict:
@@ -617,8 +622,9 @@ class ExperimentEvaluator:
             if self.artifact_root:
                 self.artifact_root.mkdir(parents=True, exist_ok=True)
             directory = Path(tempfile.mkdtemp(prefix="experiment-", dir=self.artifact_root))
-            (directory / "circuit.json").write_text(circuit.model_dump_json(indent=2))
-            (directory / "fixture.json").write_text(spec.model_dump_json(indent=2))
+            if not self.lean:
+                (directory / "circuit.json").write_text(circuit.model_dump_json(indent=2))
+                (directory / "fixture.json").write_text(spec.model_dump_json(indent=2))
             (directory / ".spiceinit").write_text("set ngbehavior=ltpsa\nset filetype=ascii\n")
             model_files = {}
             for index, (name, entry) in enumerate(sorted(models.items())):
@@ -626,9 +632,13 @@ class ExperimentEvaluator:
                 shutil.copyfile(entry["path"], directory / filename)
                 model_files[name] = filename
             environment = dict(os.environ, HOME=str(directory), SPICE_ASCIIRAWFILE="1")
-            version_run = subprocess.run([self.executable, "--version"], capture_output=True, text=True, check=False,
-                                        timeout=max(0.001, deadline - time.monotonic()), env=environment)
-            version = version_run.stdout.strip()[:2000]
+            if self.lean:
+                version = self.simulator_version
+            else:
+                version_run = subprocess.run([self.executable, "--version"], capture_output=True, text=True,
+                                            check=False, timeout=max(0.001, deadline - time.monotonic()),
+                                            env=environment)
+                version = version_run.stdout.strip()[:2000]
             ac_sources = {m.source for m in spec.measurements if m.operator.value.startswith("ac_")}
             if any(m.operator == MeasurementOperator.INTEGRATED_NOISE_RMS for m in spec.measurements):
                 ac_sources.update(noise.source for noise in spec.noise_sources)
@@ -667,14 +677,15 @@ class ExperimentEvaluator:
                 datasets[(analysis, source)] = names, data
                 if time.monotonic() > deadline:
                     raise subprocess.TimeoutExpired(self.executable, self.timeout_s)
-                np.savez_compressed(directory / f"{label}.curves.npz", names=np.array(names), data=data)
-                if time.monotonic() > deadline:
-                    raise subprocess.TimeoutExpired(self.executable, self.timeout_s)
-                columns = np.column_stack([array for column in data.T for array in (column.real, column.imag)])
-                headers = ",".join(f"{name}_{part}" for name in names for part in ("real", "imag"))
-                if time.monotonic() > deadline:
-                    raise subprocess.TimeoutExpired(self.executable, self.timeout_s)
-                np.savetxt(directory / f"{label}.curves.csv", columns, delimiter=",", header=headers)
+                if not self.lean:
+                    np.savez_compressed(directory / f"{label}.curves.npz", names=np.array(names), data=data)
+                    if time.monotonic() > deadline:
+                        raise subprocess.TimeoutExpired(self.executable, self.timeout_s)
+                    columns = np.column_stack([array for column in data.T for array in (column.real, column.imag)])
+                    headers = ",".join(f"{name}_{part}" for name in names for part in ("real", "imag"))
+                    if time.monotonic() > deadline:
+                        raise subprocess.TimeoutExpired(self.executable, self.timeout_s)
+                    np.savetxt(directory / f"{label}.curves.csv", columns, delimiter=",", header=headers)
                 if analysis in ("op", "tran"):
                     self._envelope(circuit, spec, models, names, data)
             metrics = self._measure(spec, datasets, deadline)
@@ -688,6 +699,13 @@ class ExperimentEvaluator:
             status, errors = "invalid", (str(exc),)
         except (OSError, RuntimeError) as exc:
             status, errors = "failed", (str(exc),)
+        except BaseException:
+            if self.lean and directory:
+                shutil.rmtree(directory, ignore_errors=True)
+            raise
+        lean_directory = directory if self.lean else None
+        if lean_directory:
+            directory = None
         result = ExperimentResult(status=status, metrics=metrics, errors=errors,
                                   model_checksums={name: entry["sha256"] for name, entry in models.items()},
                                   fixture_fingerprint=spec.fingerprint, circuit_fingerprint=circuit.fingerprint,
@@ -697,6 +715,8 @@ class ExperimentEvaluator:
                                   if directory else ())
         if directory:
             (directory / "metrics.json").write_text(result.model_dump_json(indent=2))
+        if lean_directory:
+            shutil.rmtree(lean_directory, ignore_errors=True)
         return result
 
     def _measure(self, spec: ExperimentSpec, datasets: dict, deadline: float = math.inf) -> dict[str, float]:

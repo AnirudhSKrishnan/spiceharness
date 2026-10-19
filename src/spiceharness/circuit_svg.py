@@ -158,7 +158,7 @@ def _card(part: dict, x: int, y: int, *, fixture: bool, height: int) -> str:
         if kind == "BJT":
             foot = "C/B/E as declared; polarity follows device model (arrow omitted)."
     result = [f'<g transform="translate({x} {y})" class="{"fixture-card" if fixture else "dut-card"}">',
-              f'<rect width="{_WIDTH}" height="{height}" rx="10" class="card"/>',
+              f'<rect width="{_WIDTH}" height="{height}" class="card"/>',
               '<title>' + _escape(f"{ref}: {kind}; " + "; ".join(
                   f"{i + 1} {pins[i] if i < len(pins) else '?'} = {node}" for i, node in enumerate(nodes)
               )) + '</title>',
@@ -265,16 +265,16 @@ def render_circuit_svg(circuit: dict, *, spec: dict | None = None) -> str:
             '<title>' + _escape(circuit.get("name", "Circuit")) + ' — exact circuit connectivity</title>'
             '<desc>Deterministic component schematic with ordered pins, named nets, explicit ideal '
             'connections, and separately identified bench fixtures. Matching net labels are connected.</desc>'
-            '<style>.sh-circuit{background:#f7f9fc;color:#172b4d;font-family:system-ui,sans-serif}'
-            '.sh-circuit text{fill:#172b4d;font-size:13px}'
+            '<style>.sh-circuit{background:#fff;color:#111;font-family:system-ui,sans-serif}'
+            '.sh-circuit text{fill:#111;font-size:13px}'
             '.sh-circuit .heading{font-size:22px;font-weight:700}'
             '.sh-circuit .section{font-size:16px;font-weight:650}'
             '.sh-circuit .reference{font-size:17px;font-weight:700}'
-            '.sh-circuit .small{font-size:11px;fill:#52637a}'
-            '.sh-circuit .net{font-family:ui-monospace,monospace;font-size:12px;fill:#164e76}'
+            '.sh-circuit .small{font-size:11px;fill:#666}'
+            '.sh-circuit .net{font-family:ui-monospace,monospace;font-size:12px}'
             '.sh-circuit .pin{font-size:18px}'
-            '.sh-circuit .card{fill:white;stroke:#cad4e1;stroke-width:1.2}'
-            '.sh-circuit .fixture-card .card{fill:#fff8ec;stroke:#bf8b3d;stroke-dasharray:5 3}'
-            '.sh-circuit .wire,.sh-circuit .symbol{fill:none;stroke:#172b4d;stroke-width:2;'
+            '.sh-circuit .card{fill:none;stroke:#bbb;stroke-width:1}'
+            '.sh-circuit .fixture-card .card{stroke:#666;stroke-dasharray:5 3}'
+            '.sh-circuit .wire,.sh-circuit .symbol{fill:none;stroke:#111;stroke-width:2;'
             'stroke-linecap:round;stroke-linejoin:round}'
-            '.sh-circuit .terminal{fill:#164e76;stroke:none}</style>' + "".join(content) + '</svg>')
+            '.sh-circuit .terminal{fill:#111;stroke:none}</style>' + "".join(content) + '</svg>')

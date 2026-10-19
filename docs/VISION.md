@@ -41,8 +41,9 @@ The ranking is a strict priority order, not a weighted blend. A higher rule alwa
 2. **Every circuit that meets all requirements comes before every circuit that doesn't.**
 3. Among passing circuits:
    1. fewer physical packages (real parts you'd solder, respecting op-amp channel counts)
-   2. then more safety margin on the bounds
-   3. then lower power
+   2. then (template designs only) more safety margin on the bounds, then lower power.
+      General experiments currently have no margin tie-break: passing circuits with equal part
+      counts keep submission order.
 4. Among failing circuits: the smallest worst-case violation, then the smallest total violation. So the "closest miss" ranks first.
 
 Displayed "points" only illustrate this order; the ordering itself is authoritative. If an experiment has **no requirements**, it is analysis only: nothing is scored, and `feasible` and `rank` stay null. The harness won't invent a winner.
@@ -90,6 +91,7 @@ Here is what the Lab 4 compare produces: 8 alternatives, 3 pass, and the simples
 
 - The result is the **best candidate found within a bounded search** (20 evaluations, 180 s of server work by default). It is not a proof of the global optimum.
 - Tolerance corners are a sensitivity screen. They are not an exhaustive worst-case or yield analysis.
+- Monte Carlo (experiments only) is an opt-in statistical estimate of yield over sampled R/L/C tolerances of candidate-owned parts. It is not worst-case proof and excludes host/protected parts, device-model variation and temperature.
 - Results are only as faithful as the vendor SPICE models (LM358, OPA1641, LM741, 2N3904/3906, 1N4148). Injected supply noise is not the same as internal device noise or calibrated hardware PSRR.
 - Out of scope: arbitrary SPICE devices and control scripts, switching converters, PCB parasitics, and IC-level design.
 - Editing an exported KiCad schematic does not carry over the original score. Re-submit the edited circuit and re-verify it.
@@ -98,7 +100,8 @@ Here is what the Lab 4 compare produces: 8 alternatives, 3 pass, and the simples
 
 - **Better candidate generation:** let the LLM explore more topologies per problem, and add more templates (Sallen-Key/MFB variants, differential/instrumentation amps, regulators).
 - **A larger device catalog**, with the same checksum and provenance rules.
-- **Stronger robustness ranking:** Monte Carlo yield, and temperature sweeps as optional ranking criteria.
+- **Monte Carlo yield analysis** has shipped for experiments; the template (`DesignSpec`) path is next.
+- **Robustness ranking and temperature sweeps** as optional ranking criteria remain future work.
 - **Smoother input:** go from a photo of a textbook circuit to a draft IR with uncertain values flagged for confirmation.
 - **Cost/area as optional tie-breakers** after feasibility and part count.
 
@@ -109,7 +112,8 @@ Here is what the Lab 4 compare produces: 8 alternatives, 3 pass, and the simples
 - The Lab 4 supply-filter comparison ranks 8 alternatives correctly.
 - The viewer, KiCad export and exported ngspice decks work.
 - Exported ngspice decks rerun successfully from their folders, and the output files match the saved ones in size.
-- 200 automated tests pass and lint is clean.
+- Monte Carlo tolerance studies run on saved experiment candidates (`experiment montecarlo`, MCP `run_monte_carlo`) and show in the viewer. They never change ranking or `run.json`.
+- 312 automated tests pass and lint is clean.
 
 **Fixed in the October 2026 review:**
 - **Pasted commands:** the follow-up commands printed after a run (such as `view`) now include the workspace and correct quoting, so they work when pasted.

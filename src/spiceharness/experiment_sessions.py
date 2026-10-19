@@ -135,7 +135,122 @@ class ExperimentManager:
              and row["purpose"] == "search"),
             key=lambda row: tuple(row["score"]["rank_key"]),
         )
+        if (self._path(run_id) / "montecarlo").is_dir():
+            # Read-only summary of optional sidecar studies; absent unless a study exists.
+            record["montecarlo"] = self.list_montecarlo(run_id)
         return record
+
+    def resolve_run_id(self, run_id: str) -> str:
+        """Complete a unique hexadecimal prefix (at least 4 characters) of a saved experiment."""
+        if re.fullmatch(r"[0-9a-f]{32}", run_id or ""):
+            return run_id
+        if re.fullmatch(r"[0-9a-f]{4,31}", run_id or "") is None:
+            raise ValueError("run_id must be a 32-character hexadecimal run identifier or a unique prefix "
+                             "of at least 4 characters")
+        matches = sorted(path.parent.name for path in self.directory.glob(f"{run_id}*/run.json")) \
+            if self.directory.is_dir() else []
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous run prefix {run_id!r} matches {len(matches)} experiments "
+                             f"({', '.join(item[:12] for item in matches[:6])}); use more characters")
+        if not matches:
+            raise ValueError(f"No saved experiment in {self.workspace} matches prefix {run_id!r}")
+        return matches[0]
+
+    def _study_directories(self, run_id: str) -> list[Path]:
+        root = self._path(run_id) / "montecarlo"
+        if not root.is_dir() or root.is_symlink():
+            return []
+        return sorted(path for path in root.iterdir()
+                      if path.is_dir() and not path.is_symlink()
+                      and re.fullmatch(r"[0-9a-f]{16}", path.name) and (path / "study.json").is_file())
+
+    def list_montecarlo(self, run_id: str) -> list[dict[str, Any]]:
+        from .montecarlo import summary_of
+
+        studies = []
+        for directory in self._study_directories(run_id):
+            try:
+                studies.append(summary_of(json.loads((directory / "study.json").read_text())))
+            except (OSError, ValueError, KeyError):
+                continue
+        return studies
+
+    def get_montecarlo(self, run_id: str, study_id: str | None = None) -> dict[str, Any] | list[dict[str, Any]]:
+        """The full saved study, or summaries when several exist and none was selected."""
+        self._read(run_id)
+        directories = self._study_directories(run_id)
+        if study_id is not None:
+            if re.fullmatch(r"[0-9a-f]{4,16}", study_id) is None:
+                raise ValueError("study_id must be a hexadecimal study id or a unique prefix")
+            directories = [path for path in directories if path.name.startswith(study_id)]
+            if len(directories) > 1:
+                raise ValueError(f"Ambiguous study prefix {study_id!r}; use more characters")
+            if not directories:
+                raise ValueError(f"No Monte Carlo study matches {study_id!r} for this experiment")
+        elif not directories:
+            raise ValueError("No Monte Carlo study exists for this experiment; call run_montecarlo first")
+        elif len(directories) > 1:
+            return self.list_montecarlo(run_id)
+        return json.loads((directories[0] / "study.json").read_text())
+
+    def _montecarlo_row(self, record: dict[str, Any], candidate_id: str | None) -> dict[str, Any]:
+        if candidate_id is None:
+            result = record.get("result") or {}
+            if record["status"] != "completed" or not result.get("verified"):
+                raise ValueError("Default Monte Carlo target is the verified winner; finalize the experiment "
+                                 "first or name a saved candidate_id")
+            candidate_id = result["best_candidate_id"]
+        matches = [row for row in record["candidates"] if row["candidate_id"].startswith(candidate_id)]
+        if not candidate_id or not matches:
+            raise ValueError(f"Unknown candidate: {candidate_id}")
+        exact = [row for row in matches if row["candidate_id"] == candidate_id]
+        if len(exact) != 1 and len(matches) != 1:
+            raise ValueError(f"Ambiguous candidate prefix {candidate_id!r}; use a longer prefix or the full ID")
+        row = exact[0] if exact else matches[0]
+        if not (row.get("score") or {}).get("valid") or not (row.get("simulation") or {}).get("metrics"):
+            raise ValueError("Monte Carlo needs a saved candidate with a valid measured evaluation")
+        return row
+
+    def run_montecarlo(self, run_id: str, request: Any, *, evaluator_factory: Any = None) -> dict[str, Any]:
+        """Run one bounded chunk of a tolerance study; never writes run.json or the leaderboard.
+
+        Repeat with the same request until ``state != "running"``. Studies are sidecars under the run
+        directory and use their own budget, separate from the 20-evaluation / 180 s session limits.
+        """
+        from .experiments import ExperimentSpec, GeneralCircuitIR
+        from .montecarlo import MonteCarloRequest, MonteCarloStore, StudyContext, ngspice_version, run_chunk
+
+        request = MonteCarloRequest.model_validate(
+            request.model_dump() if hasattr(request, "model_dump") else request)
+        record = self._read(run_id)
+        if record.get("operation_started_at") is not None:
+            raise ValueError("Experiment has an unfinished operation; call get_experiment or finalize first")
+        if record["status"] in ("cancelled", "cancelling") or record["cancel_requested"]:
+            raise ValueError("Experiment is cancelled")
+        with (self._path(run_id) / "session.lock").open("a") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise ValueError("An experiment operation is active; retry when it finishes") from exc
+            try:
+                record = self._read(run_id)
+                row = self._montecarlo_row(record, request.candidate_id)
+                spec = ExperimentSpec.model_validate(record["spec"])
+                circuit = GeneralCircuitIR.model_validate(row["circuit"])
+                request = MonteCarloRequest.model_validate({**request.model_dump(), "candidate_id": row["candidate_id"]})
+                request.validate_against(circuit, spec)
+                study_id = request.study_id(
+                    run_id=run_id, candidate_id=row["candidate_id"], fixture_fingerprint=spec.fingerprint,
+                    circuit_fingerprint=circuit.fingerprint)
+                context = StudyContext(
+                    run_id=run_id, candidate_id=row["candidate_id"],
+                    candidate_name=circuit.name, circuit=circuit, spec=spec,
+                    saved_metrics=dict(row["simulation"]["metrics"]),
+                    simulator_version=None if evaluator_factory else ngspice_version())
+                return run_chunk(MonteCarloStore(self._path(run_id), study_id), context, request,
+                                 evaluator_factory=evaluator_factory)
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
     def list_experiments(self) -> list[dict[str, Any]]:
         if not self.directory.exists():
@@ -150,7 +265,39 @@ class ExperimentManager:
             record = self._read(run_id)
             if record["status"] not in TERMINAL:
                 (self._path(run_id) / "cancel.requested").touch()
+        self._cancel_studies(run_id)
         return self.get_experiment(run_id)
+
+    def _cancel_studies(self, run_id: str) -> None:
+        """Stop running Monte Carlo studies of this run: at the next sample boundary, or at once if idle.
+
+        A cancelled study keeps its committed prefix and resumes on the next run_montecarlo call.
+        """
+        from .montecarlo import MonteCarloStore
+
+        for directory in self._study_directories(run_id):
+            store = MonteCarloStore(self._path(run_id), directory.name)
+            try:
+                study = json.loads((directory / "study.json").read_text())
+                if study.get("state") != "running":
+                    continue
+                try:
+                    with store.lock():       # no chunk is active: mark it directly
+                        study = store.load() or study
+                        if study.get("state") == "running":
+                            study["state"] = "cancelled"
+                            store.save(study)
+                except ValueError:           # a chunk is active: it checks the sentinel between samples
+                    if not store.cancel_path.is_symlink():
+                        store.cancel_path.touch()
+            except (OSError, ValueError, KeyError):
+                continue
+
+    def append_event(self, run_id: str, event: dict[str, Any]) -> None:
+        """Record an auditable event on a saved experiment."""
+        record = self._read(run_id)
+        record["events"].append({"created_at": utcnow(), **event})
+        self._save(record)
 
     def start_experiment(self, spec: Any, *,
                          execution_mode: Literal["client", "direct"] = "client") -> dict[str, Any]:

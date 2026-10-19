@@ -1,0 +1,51 @@
+{
+  "name": "feedback_cap_12nf",
+  "components": [
+    {
+      "ref": "U1",
+      "kind": "OPAMP",
+      "nodes": [
+        "input",
+        "inv",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "model": "LM741",
+      "package": "U1"
+    },
+    {
+      "ref": "RF",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 2000.0
+    },
+    {
+      "ref": "RG",
+      "kind": "R",
+      "nodes": [
+        "inv",
+        "0"
+      ],
+      "value": 1000.0
+    },
+    {
+      "ref": "CF",
+      "kind": "C",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 1.2e-08
+    }
+  ],
+  "connections": [
+    [
+      "feed",
+      "input"
+    ]
+  ]
+}

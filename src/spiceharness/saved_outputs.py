@@ -125,24 +125,24 @@ def _svg(x: np.ndarray, y: np.ndarray, title: str, *, ac: bool, unit: str) -> st
     title = escape(title, quote=True)
     output = [(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 415" '
               f'width="1000" height="415" role="img" aria-label="{title}">'),
-              '<rect width="1000" height="415" rx="10" fill="#0c1726"/>',
-              f'<text x="24" y="28" fill="#eef5ff" font-family="sans-serif" font-size="16">{title}</text>']
+              '<rect width="1000" height="415" fill="#fff"/>',
+              f'<text x="24" y="28" fill="#111" font-family="sans-serif" font-size="16">{title}</text>']
     for i in range(6):
         tx = left + width*i/5
         value = 10**(xmin+(xmax-xmin)*i/5) if ac else xmin+(xmax-xmin)*i/5
-        output += [f'<path d="M{tx:.2f},{top} v{height}" stroke="#2a3b50"/>',
-                   (f'<text x="{tx:.2f}" y="363" text-anchor="middle" fill="#aabbd0" '
+        output += [f'<path d="M{tx:.2f},{top} v{height}" stroke="#ddd"/>',
+                   (f'<text x="{tx:.2f}" y="363" text-anchor="middle" fill="#666" '
                    f'font-family="monospace" font-size="12">{value:.4g}</text>')]
     for i in range(5):
         ty = top + height*i/4
         value = ymax-(ymax-ymin)*i/4
-        output += [f'<path d="M{left},{ty:.2f} h{width}" stroke="#2a3b50"/>',
-                   (f'<text x="84" y="{ty+4:.2f}" text-anchor="end" fill="#aabbd0" '
+        output += [f'<path d="M{left},{ty:.2f} h{width}" stroke="#ddd"/>',
+                   (f'<text x="84" y="{ty+4:.2f}" text-anchor="end" fill="#666" '
                    f'font-family="monospace" font-size="12">{value:.4g}</text>')]
-    output += [f'<path d="{line}" fill="none" stroke="#6acbff" stroke-width="2"/>',
-               ('<text x="520" y="396" text-anchor="middle" fill="#d9e8fa" '
+    output += [f'<path d="{line}" fill="none" stroke="#111" stroke-width="1.5"/>',
+               ('<text x="520" y="396" text-anchor="middle" fill="#111" '
                f'font-family="sans-serif" font-size="13">{"Frequency (Hz), log scale" if ac else "Time (s)"}</text>'),
-               ('<text x="20" y="200" transform="rotate(-90 20 200)" text-anchor="middle" fill="#d9e8fa" '
+               ('<text x="20" y="200" transform="rotate(-90 20 200)" text-anchor="middle" fill="#111" '
                f'font-family="sans-serif" font-size="13">{escape(unit)}</text>'), '</svg>']
     return "".join(output)
 

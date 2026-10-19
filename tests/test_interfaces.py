@@ -122,7 +122,7 @@ async def test_sdk_stdio_lifecycle_and_structured_tools(tmp_path: Path, spec: De
                          "score_candidate", "search_knowledge", "render_circuit", "propose_candidates",
                          "evaluate_candidate", "finalize_design", "start_experiment", "evaluate_experiment",
                          "get_experiment", "finalize_experiment", "cancel_experiment", "export_run",
-                         "import_kicad_schematic"}
+                         "import_kicad_schematic", "run_monte_carlo", "get_monte_carlo"}
         circuit = make_candidate(spec).model_dump(mode="json")
         validated = await client.call_tool("validate_circuit", {"circuit": circuit})
         assert not validated.is_error, validated

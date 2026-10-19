@@ -389,11 +389,9 @@ def _rescore_kicad(run_id: str, schematic: Path, workspace: Path, json_output: b
     run_dir = manager.directory / new_id
     (run_dir / "kicad_import.json").write_text(json.dumps(provenance, indent=2))
     (run_dir / "imported.kicad_sch").write_bytes(data)
-    record = manager._read(new_id)
-    record["events"].append({"type": "kicad_rescore_import", "created_at": utcnow(),
-                             "original_run_id": run_id, "schematic_path": str(path),
-                             "schematic_sha256": imported.sha256})
-    manager._save(record)
+    manager.append_event(new_id, {"type": "kicad_rescore_import", "created_at": utcnow(),
+                                  "original_run_id": run_id, "schematic_path": str(path),
+                                  "schematic_sha256": imported.sha256})
     row = manager.evaluate_experiment(new_id, imported.circuit)
     simulation = row.get("simulation") or {}
     if not (row.get("score") or {}).get("valid"):
@@ -507,3 +505,273 @@ def _print_rescore(final: dict[str, Any], report: dict[str, Any], workspace: Pat
     for label, sub in (("Inspect", f"experiment show {new_id}"), ("Browser view", f"view {new_id}"),
                        ("Export the edit", f"export {new_id}")):
         typer.echo(f"{label}: {command_hint(sub, workspace)}")
+
+
+# ---------------------------------------------------------------------------
+# Monte Carlo tolerance studies (post-ranking, statistical, never alters run.json)
+
+def _g(value: Any) -> str:
+    return "—" if value is None else f"{value:.5g}"
+
+
+def _pct(value: Any) -> str:
+    return "—" if value is None else f"{100 * value:.1f}%"
+
+
+def _interval(interval: Any) -> str:
+    return "—" if not interval else f"[{interval[0]:.3f}, {interval[1]:.3f}]"
+
+
+STATE_TEXT = {
+    "nominal_mismatch": "NOT MEASURED: the nominal re-measurement did not reproduce the saved metrics, "
+                        "so no samples were taken. Simulator or model files may have changed.",
+    "identity_mismatch": "STOPPED: the simulator version or model checksums changed since this study "
+                         "started; samples are not pooled. Use a different seed for a new study.",
+    "aborted": "ABORTED: the first samples were all unmeasurable under jitter; the circuit is "
+               "systematically unmeasurable at these tolerances. This is not a yield result.",
+    "truncated": "TRUNCATED: the study time cap was reached before the target; statistics cover "
+                 "only the samples completed.",
+    "cancelled": "CANCELLED: statistics cover only the samples completed; rerun the same command to resume.",
+}
+FAILED_STATES = ("nominal_mismatch", "identity_mismatch", "aborted")
+
+
+def _yield_line(study: dict[str, Any]) -> str:
+    if study.get("analysis_only"):
+        return f"Yield: {study['scoring']}; yield, rank_key and feasibility are null."
+    y = study.get("yield")
+    if y is None:
+        return f"Yield: not measured (state {study['state']}); no pass fraction is reported."
+    partial = f" (partial: {study['state']})" if study["state"] != "complete" else ""
+    return (f"Yield: {y['passing']}/{y['attempted']} = {_pct(y['fraction'])}, Wilson 95% "
+            f"{_interval(y['wilson95'])}{partial}"
+            + (f"; limiting requirement: {y['limiting_requirement']}" if y.get("limiting_requirement") else ""))
+
+
+def print_study(study: dict[str, Any], workspace: Path | None) -> None:
+    """Plain-text report of one saved study; reads saved numbers only. Statistics, not verdicts."""
+    request, progress = study["request"], study["progress"]
+    typer.echo(f"Monte Carlo study {study['study_id']} · {study['candidate_name']} "
+               f"({study['candidate_id'][:8]}) · run {study['run_id']}")
+    typer.echo("Deterministic sampling over real ngspice runs (no agents, no model API calls).")
+    typer.echo("NOTICE: " + study["notice"])
+    typer.echo(f"State: {study['state']} · samples {progress['completed']}/{progress['target']} · "
+               f"seed {request['seed']} · {request['distribution']} · {progress['elapsed_seconds']:.1f} s "
+               f"over {progress['chunks']} chunk(s)")
+    if study["state"] in STATE_TEXT:
+        typer.echo(STATE_TEXT[study["state"]])
+    if study.get("error"):
+        typer.echo(f"Reason: {study['error']}")
+    typer.echo("Assumptions:")
+    for line in study["assumptions"]:
+        typer.echo(f"  - {line}")
+    nominal = study.get("nominal") or {}
+    if nominal and not nominal.get("matches_saved") and nominal.get("error"):
+        typer.echo(f"Nominal simulator error: {nominal['error']}")
+    counts = study.get("counts")
+    if counts and counts["attempted"]:
+        typer.echo(f"Samples ok {counts['ok']}, invalid {counts['invalid']}, timeout {counts['timeout']}, "
+                   f"failed {counts['failed']} of {counts['attempted']} attempted.")
+        for reason, count in counts["invalid_reasons"].items():
+            typer.echo(f"  {count} x {reason}")
+    typer.echo(_yield_line(study))
+    if study["requirements"]:
+        typer.echo("Requirements (fraction of samples meeting each bound; statistics, not a verdict):")
+        for row in study["requirements"]:
+            typer.echo(f"  {row['metric']}: bounds {_g(row['minimum'])} .. {_g(row['maximum'])}")
+            typer.echo(f"      passing {row['passing']}/{row['attempted']} = {_pct(row['fraction'])}, "
+                       f"Wilson 95% {_interval(row['wilson95'])}, min margin {_g(row['min_margin'])}")
+    if study["measurements"]:
+        typer.echo("Measurements over successful samples (SI units):")
+        for name, stat in study["measurements"].items():
+            p = stat["percentiles"]
+            typer.echo(f"  {name} (n={stat['n']})")
+            typer.echo(f"      nominal {_g(stat['nominal'])}  mean {_g(stat['mean'])}  std {_g(stat['std'])}")
+            typer.echo(f"      min {_g(stat['min'])}  p5 {_g(p['5'])}  p50 {_g(p['50'])}  "
+                       f"p95 {_g(p['95'])}  max {_g(stat['max'])}")
+    if study.get("sensitivity"):
+        typer.echo("Correlation screening (sampling-based, not a derivative or worst case):")
+        for metric, rows in study["sensitivity"].items():
+            typer.echo(f"  {metric}: " + ", ".join(f"{r['ref']} r={r['pearson']:+.2f}" for r in rows))
+    worst = study.get("worst_sample")
+    if worst:
+        check = worst.get("reverification") or ("matched" if worst["reverified"] else "not run")
+        typer.echo(f"Worst sample #{worst['index']}: max violation {worst['max_violation']:.4g}; violated "
+                   + ", ".join(worst["violated"]) + f"; full-fidelity rerun: {check}")
+        typer.echo("  part values: " + ", ".join(
+            f"{ref}={v['value']:.6g}" + (f" (esr {v['esr']:.4g})" if "esr" in v else "")
+            for ref, v in worst["values"].items()))
+    elif study["requirements"] and study["state"] == "complete":
+        typer.echo("No sampled circuit violated a requirement.")
+    if study["state"] == "running":
+        typer.echo("Study is still running; repeat the same command to continue.")
+    typer.echo("Show again: " + command_hint(
+        f"experiment montecarlo-show {shlex.quote(study['run_id'])} {study['study_id']}", workspace))
+    typer.echo("Browser view: " + command_hint(f"view {shlex.quote(study['run_id'])}", workspace))
+
+
+def _comparison_table(studies: list[dict[str, Any]]) -> None:
+    typer.echo("Robustness (statistical, advisory; not the ranking)")
+    table = Table(box=box.SIMPLE, expand=True, padding=(0, 0))
+    for label in ("Candidate", "State", "Samples", "Yield", "Wilson 95%", "Limiting requirement"):
+        table.add_column(label, overflow="fold")
+    for study in studies:
+        y = study.get("yield")
+        unscored = "not scored" if study.get("analysis_only") else "not measured"
+        table.add_row(f"{study['candidate_name']} {study['candidate_id'][:8]}", study["state"],
+                      f"{study['progress']['completed']}/{study['progress']['target']}",
+                      _pct(y["fraction"]) if y else unscored,
+                      _interval(y["wilson95"]) if y else "—",
+                      (y.get("limiting_requirement") or "—") if y else "—")
+    console.print(table)
+
+
+def _below(study: dict[str, Any], minimum: float) -> bool:
+    """True unless a measured Wilson lower bound of a finished study reaches ``minimum``."""
+    y = study.get("yield")
+    return (y is None or not y.get("wilson95") or study["state"] != "complete"
+            or y["wilson95"][0] < minimum)
+
+
+def _parse_overrides(values: list[str] | None) -> dict[str, float]:
+    result: dict[str, float] = {}
+    for item in values or []:
+        ref, separator, fraction = item.partition("=")
+        if not separator or not ref.strip():
+            raise ValueError(f"--tol expects REF=FRACTION (for example C1=0.2), got {item!r}")
+        try:
+            result[ref.strip().lower()] = float(fraction)
+        except ValueError as exc:
+            raise ValueError(f"--tol {item!r}: tolerance must be a number") from exc
+    return result
+
+
+@app.command("montecarlo")
+def montecarlo(
+    run_id: Annotated[str, typer.Argument(help="Saved experiment run ID or unique prefix.")],
+    workspace: Workspace = None,
+    candidate: Annotated[list[str] | None, typer.Option(
+        "--candidate", help="Saved candidate ID or unique prefix; repeatable. Default: the verified winner.")] = None,
+    top: Annotated[int | None, typer.Option("--top", min=1, max=5,
+                                            help="Study the first K feasible leaderboard rows.")] = None,
+    samples: Annotated[int, typer.Option("--samples", "-n", min=1, max=500)] = 100,
+    seed: Annotated[int, typer.Option("--seed", min=0, help="Use a new seed for an independent replicate.")] = 1,
+    distribution: Annotated[str, typer.Option("--distribution", help="uniform or gaussian")] = "uniform",
+    r_tol: Annotated[float, typer.Option("--r-tol", min=0, max=0.5)] = 0.01,
+    c_tol: Annotated[float, typer.Option("--c-tol", min=0, max=0.5)] = 0.05,
+    l_tol: Annotated[float, typer.Option("--l-tol", min=0, max=0.5)] = 0.10,
+    esr_tol: Annotated[float, typer.Option("--esr-tol", min=0, max=0.5,
+                                           help="Fractional spread of series resistance (ESR/DCR); 0 = nominal.")] = 0.0,
+    tol: Annotated[list[str] | None, typer.Option("--tol", help="Per-part override REF=FRACTION; repeatable.")] = None,
+    max_seconds: Annotated[float, typer.Option("--max-seconds", min=1, max=300)] = 120,
+    workers: Annotated[int | None, typer.Option("--workers", min=1, max=8)] = None,
+    min_yield: Annotated[float | None, typer.Option(
+        "--min-yield", help="Exit 1 when the Wilson lower bound (or an analysis-only null) falls below F.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Statistical R/C/L tolerance study of saved candidates: real ngspice, no agents, not worst-case proof.
+
+    Studies are sidecars: run.json, the ranking and verification are never changed. Re-running the
+    same command resumes a study; a larger -n extends it as an exact prefix.
+    """
+    import os
+
+    from .montecarlo import MonteCarloRequest
+
+    try:
+        manager = ExperimentManager(workspace)
+        run_id = manager.resolve_run_id(run_id)
+        run = manager.get_experiment(run_id)
+        overrides = _parse_overrides(tol)
+        if candidate and top:
+            raise ValueError("Use either --candidate or --top, not both")
+        if top:
+            if run["analysis_only"]:
+                raise ValueError("--top needs a scored experiment; this one is analysis only "
+                                 "(Not scored, no acceptance requirements). Name --candidate instead.")
+            targets = [row["candidate_id"] for row in run["leaderboard"]
+                       if (row.get("score") or {}).get("feasible")][:top]
+            if not targets:
+                raise ValueError("No feasible saved candidate to study")
+        else:
+            targets = list(candidate) if candidate else [None]
+        request = {"samples": samples, "seed": seed, "distribution": distribution,
+                   "resistor_tolerance": r_tol, "capacitor_tolerance": c_tol, "inductor_tolerance": l_tol,
+                   "series_resistance_tolerance": esr_tol, "part_tolerances": overrides,
+                   "max_seconds": max_seconds, "workers": workers or min(4, os.cpu_count() or 1)}
+        studies = []
+        for target in targets:
+            body = MonteCarloRequest.model_validate({**request, "candidate_id": target})
+            started = time.monotonic()
+            while True:
+                study = manager.run_montecarlo(run_id, body)
+                if not json_output:
+                    typer.echo(f"  {study['candidate_name']}: {study['progress']['completed']}/"
+                               f"{study['progress']['target']} samples, {study['state']}, "
+                               f"{time.monotonic() - started:.1f} s")
+                if study["state"] != "running":
+                    break
+            studies.append(study)
+    except KeyboardInterrupt:
+        typer.echo("Interrupted; the committed sample prefix is saved. Resume with the same command.")
+        raise typer.Exit(130) from None
+    except (ValueError, OSError, KeyError) as exc:
+        _error(exc)
+    if json_output:
+        typer.echo(json.dumps(studies[0] if len(studies) == 1 else studies, indent=2))
+    else:
+        for study in studies:
+            print_study(study, workspace)
+        if len(studies) > 1:
+            _comparison_table(studies)
+    if any(study["state"] in FAILED_STATES for study in studies):
+        typer.echo("Exit 1: a study was not measured (nominal mismatch, identity change or abort).")
+        raise typer.Exit(1)
+    if min_yield is not None and any(_below(study, min_yield) for study in studies):
+        raise typer.Exit(1)
+
+
+@app.command("montecarlo-show")
+def montecarlo_show(
+    run_id: Annotated[str, typer.Argument(help="Saved experiment run ID or unique prefix.")],
+    study_id: Annotated[str | None, typer.Argument(help="Study ID or unique prefix.")] = None,
+    workspace: Workspace = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Show a saved Monte Carlo study (or list the studies of a run) from saved evidence; no simulation."""
+    try:
+        manager = ExperimentManager(workspace)
+        run_id = manager.resolve_run_id(run_id)
+        found = manager.get_montecarlo(run_id, study_id)
+    except (ValueError, OSError, KeyError) as exc:
+        _error(exc)
+    if json_output:
+        typer.echo(json.dumps(found, indent=2))
+    elif isinstance(found, list):
+        typer.echo(f"{len(found)} Monte Carlo studies for run {run_id} (statistical, not worst-case proof):")
+        for item in found:
+            y = item["yield"]
+            typer.echo(f"  {item['study_id']} {item['candidate_name']} {item['candidate_id'][:8]} "
+                       f"{item['state']} {item['completed']}/{item['target']} seed {item['seed']} "
+                       + (f"yield {_pct(y['fraction'])} Wilson {_interval(y['wilson95'])}" if y
+                          else "not measured" if item.get("scoring", "").startswith("scored") else
+                          "Not scored (analysis only, no acceptance requirements)"))
+        typer.echo("Open one: " + command_hint(
+            f"experiment montecarlo-show {shlex.quote(run_id)} STUDY_ID", workspace))
+    else:
+        print_study(found, workspace)
+
+
+@app.command("cancel")
+def cancel(run_id: Annotated[str, typer.Argument(help="Saved experiment run ID or unique prefix.")],
+           workspace: Workspace = None) -> None:
+    """Cancel a running experiment and stop its running Monte Carlo studies at the next sample.
+
+    A cancelled study keeps its saved samples; rerun `experiment montecarlo` to resume it.
+    """
+    try:
+        manager = ExperimentManager(workspace)
+        run = manager.cancel_experiment(manager.resolve_run_id(run_id))
+        typer.echo(f"Run {run['run_id']} status {run['status']}; running Monte Carlo studies were told to stop.")
+    except (ValueError, OSError, KeyError) as exc:
+        _error(exc)

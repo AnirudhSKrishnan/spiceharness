@@ -1,0 +1,64 @@
+{
+  "name": "rc_rc_47nf_1k_15nf",
+  "components": [
+    {
+      "ref": "U1",
+      "kind": "OPAMP",
+      "nodes": [
+        "input",
+        "inv",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "model": "LM741",
+      "package": "U1"
+    },
+    {
+      "ref": "RF",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 2000.0
+    },
+    {
+      "ref": "RG",
+      "kind": "R",
+      "nodes": [
+        "inv",
+        "0"
+      ],
+      "value": 1000.0
+    },
+    {
+      "ref": "C1",
+      "kind": "C",
+      "nodes": [
+        "feed",
+        "0"
+      ],
+      "value": 4.7e-08
+    },
+    {
+      "ref": "R2",
+      "kind": "R",
+      "nodes": [
+        "feed",
+        "input"
+      ],
+      "value": 1000.0
+    },
+    {
+      "ref": "C2",
+      "kind": "C",
+      "nodes": [
+        "input",
+        "0"
+      ],
+      "value": 1.5e-08
+    }
+  ],
+  "connections": []
+}

@@ -78,6 +78,8 @@ an error rather than score a stale number. KiCad's own simulator uses `Sim.Param
 | Unknown `lib_id`, polarized caps, multi-unit symbols, sheets, hierarchical labels, buses, net-class flags, unknown items | Not representable in the Circuit IR. |
 | Model not in the catalog, or a custom `Sim.Library` | No ideal or arbitrary substitute models; only trusted catalog models. |
 | Behavioural passives (`Sim.Name`), extra `Sim.Params` (e.g. `tc1`) | Raw SPICE and arbitrary parameters are never accepted. SPICE text directives are ignored with a warning. |
+| Edited, truncated, duplicated or stale `Sim.Pins` on an op-amp, BJT or diode (and a malformed one on R/C/L) | SpiceHarness wires by drawn pin number but KiCad's simulator uses `Sim.Pins`; a mismatch would simulate a different circuit. The mapping must equal what the exporter writes for the catalog model (this includes a mapping left over after a model change). R/C/L accept either pin order. Delete the property to opt out. |
+| More than 2000 diagonal wires, or an import taking over 10 s | Keeps the synchronous MCP import tool responsive; real schematics use horizontal and vertical wires. |
 | Intrinsic-loss resistor no longer in series with its parent on a private net | The IR can only fold it into `series_resistance_ohm`. Deleting it means zero loss. |
 | No-connect flag on a used pin; unconnected modeled pins; unannotated or duplicate references | Every modeled terminal must be connected; copies of exported symbols keep their `IR.Reference`, so clear the `IR.*` properties of a copy. |
 | Shorts across a source, floating islands, protected host parts changed | Rejected by the existing `ExperimentEvaluator.validate` before any simulation. |

@@ -20,7 +20,9 @@ from spiceharness.experiment_sessions import ExperimentManager
 from spiceharness.experiments import ExperimentSpec, GeneralCircuitIR
 from spiceharness.kicad_export import _POSITIONS, _TWO_PINS
 from spiceharness.kicad_import import (
+    MAX_DIAGONAL_WIRES,
     KiCadImportError,
+    import_kicad_bytes,
     import_kicad_schematic,
     parse_sexpr,
     parse_si_value,
@@ -821,3 +823,127 @@ def test_values_agree_with_kicad_spice_export(rc, tmp_path):
             assert kicad_value == pytest.approx(result.symbol_values[fields[0]], rel=1e-12), line
             seen += 1
     assert seen == len(result.symbol_values) >= 6
+
+
+# ----------------------------------------------------------------------------- Sim.Pins consistency
+
+
+@pytest.fixture
+def opamp(tmp_path):
+    """Exported op-amp circuit whose LM741 binding carries the exporter's Sim.Pins mapping."""
+    from spiceharness.kicad_export import render_kicad_schematic
+    from spiceharness.simulator import MODEL_DIR
+
+    circuit = json.loads((LAB4 / "direct.json").read_text())
+    spec = json.loads((LAB4 / "spec.json").read_text())
+    catalog = json.loads((MODEL_DIR / "catalog.json").read_text())
+    folder = tmp_path / "op"
+    folder.mkdir()
+
+    def render(model: str, pins: list[str]) -> None:
+        circuit["components"][0]["model"] = model
+        binding = {**catalog[model], "library": "model_0.lib", "model_pins": pins}
+        (folder / "candidate.kicad_sch").write_text(
+            render_kicad_schematic(circuit, spec=spec, model_bindings={model: binding}))
+
+    render("LM741", ["1", "2", "99", "50", "28"])
+    (folder / "circuit.json").write_text(json.dumps(circuit))
+    return folder, spec, render
+
+
+def _pins_edit(folder: Path, value: str) -> None:
+    lines = _lines(folder)
+    _set(lines, "U1", "Sim.Pins", value)
+    _save(folder, lines)
+
+
+def test_untouched_export_with_sim_pins_imports_cleanly(opamp):
+    folder, spec, _ = opamp
+    assert "Sim.Pins" in (folder / "candidate.kicad_sch").read_text()
+    assert _rc_import(folder, spec).require_ok().circuit["components"][0]["model"] == "LM741"
+
+
+@pytest.mark.parametrize("value", ["1=2 2=1 3=99 4=50 5=28", "1=1 2=2", "1=1 2=2 3=99 4=50 4=28",
+                                   "1=1 2=2 3=99 4=50 5=28 6=7", "1=1 1=2 3=99 4=50 5=28", ""])
+def test_edited_sim_pins_on_opamp_are_a_hard_error(opamp, value):
+    folder, spec, _ = opamp
+    _pins_edit(folder, value)
+    with pytest.raises(KiCadImportError, match=r"U1: Sim\.Pins"):
+        _rc_import(folder, spec)
+
+
+def test_swapped_inputs_message_names_expected_and_found(opamp):
+    folder, spec, _ = opamp
+    _pins_edit(folder, "1=2 2=1 3=99 4=50 5=28")
+    with pytest.raises(KiCadImportError) as info:
+        _rc_import(folder, spec)
+    assert "1=1 2=2 3=99 4=50 5=28" in str(info.value) and "found '1=2 2=1" in str(info.value)
+
+
+def test_stale_sim_pins_after_model_change_are_rejected(opamp, tmp_path):
+    from spiceharness.simulator import MODEL_DIR
+
+    folder, spec, render = opamp
+    render("LM358", ["3", "2", "8", "4", "1"])  # a model with other pin names, then change back by hand
+    lines = _lines(folder)
+    _set(lines, "U1", "Sim.Pins", "1=1 2=2 3=99 4=50 5=28")  # stale LM741 mapping
+    _save(folder, lines)
+    expected_names = (MODEL_DIR / "LM358.lib").exists()
+    if expected_names:
+        with pytest.raises(KiCadImportError, match=r"U1: Sim\.Pins"):
+            _rc_import(folder, spec)
+
+
+def test_two_terminal_sim_pins_accept_either_order_but_not_garbage(rc):
+    folder, spec, _ = rc
+    lines = _lines(folder)
+    _set(lines, "R1", "Sim.Pins", "1=2 2=1")
+    _save(folder, lines)
+    assert _rc_import(folder, spec).ok
+    _set(lines, "R1", "Sim.Pins", "1=1")
+    _save(folder, lines)
+    with pytest.raises(KiCadImportError, match=r"Sim\.Pins"):
+        _rc_import(folder, spec)
+
+
+# ----------------------------------------------------------------------------- bounded import time
+
+
+def _wires_only(lines: list[str]) -> bytes:
+    body = "\n".join(lines)
+    return (f'(kicad_sch (version 20250114) (generator "eeschema") (uuid "u") (paper "A4") (lib_symbols)\n'
+            f'{body})').encode()
+
+
+def test_many_collinear_wires_import_quickly():
+    import time
+
+    wires = [f"(wire (pts (xy {2 * i} 0) (xy {2 * i + 1} 0)) (stroke (width 0) (type default)))"
+             for i in range(20000)]
+    data = _wires_only(wires)
+    best = float("inf")
+    for _ in range(2):  # best of two: a loaded CI machine must not turn this into a flaky test
+        start = time.perf_counter()
+        import_kicad_bytes(data)
+        best = min(best, time.perf_counter() - start)
+    assert best < 2.0
+
+
+def test_too_many_diagonal_wires_are_rejected_quickly():
+    import time
+
+    count = MAX_DIAGONAL_WIRES + 1
+    wires = [f"(wire (pts (xy {i} 0) (xy {i + 1} 1)) (stroke (width 0) (type default)))" for i in range(count)]
+    start = time.perf_counter()
+    with pytest.raises(KiCadImportError, match="diagonal wires"):
+        import_kicad_bytes(_wires_only(wires))
+    assert time.perf_counter() - start < 2.0
+
+
+def test_import_time_budget_is_enforced(monkeypatch):
+    monkeypatch.setattr("spiceharness.kicad_import.IMPORT_TIME_BUDGET_S", -1.0)
+    wires = [f"(wire (pts (xy {2 * i} 0) (xy {2 * i + 1} 0)) (stroke (width 0) (type default)))"
+             for i in range(300)]
+    junctions = [f"(junction (at {2 * i + 0.5} 0))" for i in range(300)]
+    with pytest.raises(KiCadImportError, match="time budget"):
+        import_kicad_bytes(_wires_only(wires + junctions))

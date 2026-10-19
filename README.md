@@ -66,6 +66,19 @@ Use `"topology": "amplifier"`, `"lowpass"`, or `"highpass"` to compare compatibl
 
 The catalog enforces its declared supply and temperature envelopes. These checks do not replace complete component stress, thermal, or tolerance analysis. Inverting amplifiers and common-emitter stages require a negative signed gain; negative-gain filter recipes are unsupported. `min_filter_order: 2` requests a second-order family. A normal run performs operating-point, AC, and transient analyses. It measures loaded gain, phase, cutoff where applicable, DC offset, current, distortion, output swing, and gain compression. A failed or nonconvergent analysis, missing required measurement, clipping, or changed specification cannot pass. Optional `corner_policy: "tolerance"` adds four correlated R/C cases plus individual positive/negative perturbations of each resistor and capacitor. These sensitivity screens expose ratio errors but are not exhaustive worst-case or yield analysis. `supply_power_w` is signed net DC power delivered by the declared rails, clamped at zero; `supply_current_a` is that power divided by the rail span. `total_rail_current_a` separately records the sum of absolute rail currents. Device and temperature variation are only as faithful as the selected SPICE models.
 
+### Monte Carlo tolerance study (experiments)
+
+After an experiment is finalized, estimate how often a saved candidate still meets the frozen bounds when its own resistor, capacitor and inductor values vary within tolerance:
+
+```bash
+uv run spiceharness experiment montecarlo RUN_ID -n 200 --c-tol 0.2 --tol R2=0.05
+uv run spiceharness experiment montecarlo-show RUN_ID
+```
+
+The default target is the verified winner; use `--candidate ID` (repeatable) or `--top K` for others. Defaults are uniform spreads of 1 % (R), 5 % (C) and 10 % (L); `--esr-tol` also varies series resistance and `--distribution gaussian` truncates at three sigma. Every sample is a real ngspice run, with no agents or model APIs. The sampler is seeded and stateless: the same seed and N give identical samples, a rerun resumes, and a larger `-n` extends the same study. Use a new `--seed` for an independent replicate.
+
+The output is a yield with a Wilson 95 % interval, per-bound pass fractions, measurement statistics and the worst sample. It is a statistical estimate, not worst-case proof. Protected host parts, fixture loads, sources, device models and temperature stay at nominal. Experiments with no requirements report statistics only ("Not scored", yield null). Studies are saved beside the run, do not alter `run.json`, ranking or verification, and appear in the `view` page. MCP clients use `run_monte_carlo` and `get_monte_carlo`.
+
 ## How the agents and score work
 
 The LangGraph workflow retrieves references, generates an analytical pool of known circuit families and standard component values, runs simulations, scores results, and independently reruns the finalist. Designer and expert agents select and reprioritize eligible candidates using measured feedback; the scorer agent reviews the numeric evidence. The expert is consulted after repeated lack of improvement. This template workflow selects from declared topology skeletons. The general experiment workflow below also accepts supported circuit connections supplied by the connected client.

@@ -1,0 +1,384 @@
+<title>SpiceHarness Showcase</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single-column lab report on graph-paper white, figures captioned like a paper, one wide figure row. */
+:root{
+  --paper:#ffffff; --ink:#111214; --muted:#5d6168; --rule:#dfe1e5; --faint:#f3f4f6;
+  --pass:#0050d0; --fail:#d00000; --grid:#eceef1;
+  --display:"Newsreader", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0f1012; --ink:#eceef1; --muted:#9aa0a8; --rule:#2a2d32; --faint:#17191c;
+  --pass:#5b9bff; --fail:#ff5a5a; --grid:#1f2226; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1012; --ink:#eceef1; --muted:#9aa0a8; --rule:#2a2d32; --faint:#17191c;
+  --pass:#5b9bff; --fail:#ff5a5a; --grid:#1f2226; color-scheme:dark}
+
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+.wrap{max-width:860px;margin:0 auto;padding-block:48px 72px;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2.2rem,5vw,3.1rem);letter-spacing:-.01em}
+h2{font-size:1.65rem}
+h3{font-size:1.15rem;font-weight:500}
+p{margin:0;max-width:66ch}
+section{display:flex;flex-direction:column;gap:18px}
+.eyebrow{font:500 .74rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.15rem;color:var(--ink);max-width:62ch}
+.byline{font-size:.9rem;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:16px;border-bottom:1px solid var(--rule);padding-bottom:36px}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.muted{color:var(--muted)}
+.pass{color:var(--pass);font-weight:600}
+.fail{color:var(--fail);font-weight:600}
+
+/* pipeline */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;border:1px solid var(--rule)}
+.flow div{padding:14px 12px;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:4px;min-width:0}
+.flow div:last-child{border-right:0}
+.flow b{font:500 .78rem/1.2 var(--mono);letter-spacing:.04em}
+.flow span{font-size:.84rem;color:var(--muted);line-height:1.4}
+.flow .who{font:500 .68rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.flow .who.llm{color:var(--muted)} .flow .who.sim{color:var(--ink)}
+@media (max-width:640px){.flow{grid-template-columns:1fr}.flow div{border-right:0;border-bottom:1px solid var(--rule)}.flow div:last-child{border-bottom:0}}
+
+/* question block */
+.q{border-left:3px solid var(--ink);padding:4px 0 4px 18px;display:flex;flex-direction:column;gap:8px}
+.q p{font-family:var(--display);font-size:1.22rem;line-height:1.45}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.specs div{background:var(--paper);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.specs dt{font:500 .7rem/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.specs dd{margin:0;font:500 .95rem/1.35 var(--mono);font-variant-numeric:tabular-nums}
+
+/* figures */
+figure{margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+figcaption{font-size:.86rem;color:var(--muted);max-width:70ch}
+figcaption b{color:var(--ink);font-weight:600}
+.chart{width:100%;overflow-x:auto}
+.chart svg{display:block;width:100%;height:auto;min-width:520px}
+.schem svg{min-width:560px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font:400 .8rem/1.3 var(--mono);color:var(--ink)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend svg{flex:none}
+
+/* table */
+.tbl{overflow-x:auto;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.88rem}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font:500 .7rem/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--ink)}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td .name{font-family:var(--mono);font-size:.82rem;display:block}
+td .desc{color:var(--muted);font-size:.82rem}
+tr.win td{background:var(--faint)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.stats div{background:var(--paper);padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stats .big{font:500 1.5rem/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.stats .lbl{font-size:.8rem;color:var(--muted);line-height:1.35}
+@media (max-width:640px){.stats{grid-template-columns:1fr}}
+
+ul.plain{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;max-width:68ch}
+ol.asks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:22px;counter-reset:a}
+ol.asks li{counter-increment:a;display:grid;grid-template-columns:2.2rem minmax(0,1fr);gap:4px 10px}
+ol.asks li::before{content:counter(a);font:500 1.5rem/1 var(--display);color:var(--muted);grid-row:span 2}
+ol.asks h3{font-size:1.08rem}
+ol.asks p{font-size:.95rem}
+.mini{border:1px solid var(--rule);margin-top:10px}
+.mini table{min-width:520px;font-size:.82rem}
+pre{margin:0;background:var(--faint);border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;font:400 .82rem/1.6 var(--mono)}
+footer{border-top:1px solid var(--rule);padding-top:20px;font-size:.82rem;color:var(--muted)}
+svg text{font-family:var(--mono)}
+@media (prefers-reduced-motion:no-preference){a{transition:color .15s}}
+a{color:var(--ink);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Project showcase · October 2026</span>
+  <h1>SpiceHarness</h1>
+  <p class="lede">A tool that turns a circuit question into several candidate designs, simulates every one in ngspice under the same frozen test bench, ranks them by a fixed rule, and re-simulates the winner from scratch before calling it a pass.</p>
+  <p class="byline">Anirudh Sankar Krishnan · Python 3.13 · ngspice-47 · vendor SPICE models (LM741, LM358, OPA1641, 2N3904/3906, 1N4148)</p>
+</header>
+
+<section>
+  <span class="eyebrow">The idea</span>
+  <h2>The language model proposes. The simulator decides.</h2>
+  <p>A language model is good at suggesting topologies and explaining tradeoffs, but its numbers are guesses. Hand simulation gives trustworthy numbers for one circuit at a time. SpiceHarness splits the work: the model (Claude Code here) may only submit structured circuit descriptions. It cannot change the test bench, supply its own measurements, or swap a real device model for an ideal one.</p>
+  <div class="flow" role="list">
+    <div role="listitem"><span class="who llm">harness</span><b>1 · Freeze</b><span>Sources, loads, probes, analyses and pass/fail bounds are fixed before any candidate is seen.</span></div>
+    <div role="listitem"><span class="who llm">model</span><b>2 · Propose</b><span>Candidate circuits as typed component lists from a checksum-pinned catalog.</span></div>
+    <div role="listitem"><span class="who sim">ngspice</span><b>3 · Measure</b><span>Operating point, AC and transient runs; gain, cutoff, THD, tone amplitude, noise.</span></div>
+    <div role="listitem"><span class="who sim">harness</span><b>4 · Rank</b><span>Passing beats failing, then fewer parts. Closest miss ranks first among failures.</span></div>
+    <div role="listitem"><span class="who sim">ngspice</span><b>5 · Re-verify</b><span>The winner is simulated again independently. Only verified and feasible counts.</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Worked example</span>
+  <h2>Filtering a 50 kHz tone out of an op-amp stage</h2>
+  <div class="q">
+    <p>An LM741 non-inverting amplifier (gain 3) receives a 2 V DC + 1 V peak, 1 kHz signal, with a 0.2 V peak, 50 kHz interference tone riding on it. What is the simplest filter that removes the tone while keeping the signal and its DC level?</p>
+    <span class="byline">Same gain-of-3 stage as the EEET1413 Lab 4 circuit, signal-path variant. The run took 8 evaluations and 5.3 s of simulation.</span>
+  </div>
+  <dl class="specs">
+    <div><dt>Gain at 1 kHz</dt><dd>2.85 – 3.15</dd></div>
+    <div><dt>Passband peak, 10 Hz–2 kHz</dt><dd>≤ 3.18</dd></div>
+    <div><dt>Transfer at 50 kHz–1 MHz</dt><dd>≤ 0.15</dd></div>
+    <div><dt>50 kHz at output</dt><dd>≤ 30 mV pk</dd></div>
+    <div><dt>Output mean</dt><dd>5.8 – 6.2 V</dd></div>
+    <div><dt>THD at 1 kHz</dt><dd>≤ 1 %</dd></div>
+    <div><dt>Fixed bench</dt><dd>600 Ω source · 10 kΩ load · ±12 V</dd></div>
+    <div><dt>Op-amp</dt><dd>LM741 vendor model, fixed</dd></div>
+  </dl>
+  <p class="muted" style="font-size:.92rem">Theory predicts no first-order filter can pass: keeping 95 % of the signal at 1 kHz forces fc ≥ 3 kHz, which leaves about 0.18 of the tone after the gain of 3. Two poles are needed. The simulator agreed.</p>
+
+  <figure>
+    <div class="legend" id="bodeLegend"></div>
+    <div class="chart" id="bode"></div>
+    <figcaption><b>Figure 1.</b> Measured AC magnitude from the signal source to the output, LM741 vendor model. The shaded marks are the frozen bounds: the gain window at 1 kHz and the 0.15 ceiling from 50 kHz up.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Candidate</th><th>All bounds</th><th class="n">Parts</th><th class="n">Gain 1 kHz</th><th class="n">Transfer 50 kHz</th><th class="n">50 kHz out</th></tr></thead>
+      <tbody>
+        <tr class="win"><td>1</td><td><span class="name">shunt_47nf_feedback_12nf</span><span class="desc">47 nF input to ground, 12 nF across RF</span></td><td class="pass">✓ pass</td><td class="n">5</td><td class="n">2.924</td><td class="n">0.118</td><td class="n">23.5 mV</td></tr>
+        <tr><td>2</td><td><span class="name">lc_8m2h_47nf</span><span class="desc">8.2 mH (20 Ω DCR) series, 47 nF shunt</span></td><td class="pass">✓ pass</td><td class="n">5</td><td class="n">2.995</td><td class="n">0.078</td><td class="n">15.4 mV</td></tr>
+        <tr><td>3</td><td><span class="name">rc_rc_47nf_1k_15nf</span><span class="desc">47 nF, 1 kΩ, 15 nF ladder</span></td><td class="pass">✓ pass</td><td class="n">6</td><td class="n">2.894</td><td class="n">0.068</td><td class="n">13.4 mV</td></tr>
+        <tr><td>4</td><td><span class="name">rc_1k_33nf</span><span class="desc">series 1 kΩ, shunt 33 nF</span></td><td class="fail">✗ fail</td><td class="n">5</td><td class="n">2.847</td><td class="n">0.179</td><td class="n">35.7 mV</td></tr>
+        <tr><td>5</td><td><span class="name">shunt_c_82nf</span><span class="desc">one cap, using the 600 Ω source as R</span></td><td class="fail">✗ fail</td><td class="n">4</td><td class="n">2.866</td><td class="n">0.192</td><td class="n">38.3 mV</td></tr>
+        <tr><td>6</td><td><span class="name">feedback_cap_12nf</span><span class="desc">12 nF across RF only</span></td><td class="fail">✗ fail</td><td class="n">4</td><td class="n">2.969</td><td class="n">1.053</td><td class="n">210 mV</td></tr>
+        <tr><td>7</td><td><span class="name">no_filter</span><span class="desc">baseline</span></td><td class="fail">✗ fail</td><td class="n">3</td><td class="n">3.000</td><td class="n">2.976</td><td class="n">593 mV</td></tr>
+      </tbody>
+    </table></div>
+    <figcaption><b>Table 1.</b> Server ranking. Parts include U1, RF and RG. The cap across RF alone can never drop below a gain of 1 because the stage is non-inverting. Rows 1 and 2 tie on the ranking key; the first submission is listed first.</figcaption>
+  </figure>
+
+  <figure class="schem">
+    <div class="chart" id="schem"></div>
+    <figcaption><b>Figure 2.</b> The winning circuit, freshly re-verified (verified = true, feasible = true). Two added capacitors give two poles with the −3 dB point near 4 kHz. Parts in grey belong to the frozen bench.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <span class="eyebrow">Robustness</span>
+  <h2>Does it still pass with real part tolerances?</h2>
+  <p>A nominal pass is not a design. A Monte Carlo study perturbs every candidate-owned R, C and L within its tolerance, re-runs ngspice for each sample, and counts how many still meet every bound. Draws are seeded and deterministic, so the same study always gives the same samples. Results are statistical estimates, not worst-case proofs.</p>
+  <div class="stats" id="mcStats"></div>
+  <figure>
+    <div class="legend" id="mcLegend"></div>
+    <div class="chart" id="mc"></div>
+    <figcaption><b>Figure 3.</b> Each dot is one simulated sample. The clear rectangle is the region where both plotted bounds pass. The wide-tolerance study (R 5 %, C 20 %, Gaussian) fails 6 of 100 samples, mostly on the output DC level and 1 kHz gain, which move with the RF/RG ratio.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <span class="eyebrow">Why the numbers can be trusted</span>
+  <h2>What the harness enforces</h2>
+  <ul class="plain">
+    <li>The bench is fingerprinted. A candidate cannot change sources, loads, probes, analyses or bounds.</li>
+    <li>Device models are vendor files with pinned checksums. Ideal substitutions are refused.</li>
+    <li>Circuits that would mislead ngspice are rejected before simulation: a net named <code>gnd</code>, voltage-source or inductor loops, non-finite samples.</li>
+    <li>The winner is re-simulated independently. A run is only reported as solved when that rerun is both verified and feasible.</li>
+    <li>Every candidate exports to an editable KiCad schematic and the original ngspice deck, so results can be checked outside the tool. Edited schematics can be imported back and re-scored as new candidates.</li>
+    <li>340 automated tests. The Monte Carlo, viewer and KiCad code was audited by a separate AI reviewer and every confirmed defect fixed.</li>
+  </ul>
+  <h3 style="margin-top:8px">Known limits</h3>
+  <ul class="plain muted">
+    <li>Results are the best found in a bounded search (20 evaluations, 180 s), not a proof of the global optimum.</li>
+    <li>Tolerance studies vary passives only. Op-amp offset, GBW spread and temperature are not varied yet.</li>
+    <li>Injected supply noise is not the same as internal device noise or calibrated PSRR.</li>
+    <li>No switching converters, PCB parasitics or arbitrary SPICE devices.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">Where I would value your advice</span>
+  <h2>Open questions</h2>
+  <ol class="asks">
+    <li><h3>Is the ranking rule sensible?</h3>
+      <p>Today a passing circuit with fewer parts always wins, and ties fall to submission order. Above, the LC filter has far more margin and identical part count but ranks second. Should margin, tolerance yield, or cost enter the ranking, and in what order?</p></li>
+    <li><h3>Is the tolerance model realistic enough?</h3>
+      <p>Independent, symmetric draws: R ±1 %, C ±5 %, L ±10 %, uniform by default. Would you add op-amp parameter spread (offset, GBW), correlated tolerances within a batch, or temperature first?</p></li>
+    <li><h3>A Lab 4 result I could not reproduce</h3>
+      <p>For the supply-noise version of this circuit, I understood the intended answer to be a decoupling capacitor from the point between the two noise generators to ground. In my simulation that capacitor removes the DC reference for both rails, and the bias collapses. Per-rail decoupling to ground passes every bound. I suspect my model of the noise generators differs from the Multisim part (I assumed a 1 Ω source; the Multisim noise part may be a 10 MΩ thermal-noise resistor). Where is my model wrong?</p>
+      <div class="mini tbl"><table>
+        <thead><tr><th>Lab 4 bench variant</th><th class="n">Output mean</th><th class="n">Gain</th><th class="n">THD</th><th class="n">Output noise</th></tr></thead>
+        <tbody>
+          <tr><td>Midpoint wired to ground, no filter</td><td class="n">6.00 V</td><td class="n">3.00</td><td class="n">—</td><td class="n">1.08 mV</td></tr>
+          <tr><td>Midpoint to ground through 100 nF</td><td class="n">0.10 V</td><td class="n">0.93</td><td class="n">71 %</td><td class="n">62 mV</td></tr>
+          <tr><td>Midpoint to ground through 2200 µF</td><td class="n">−10.6 V</td><td class="n">6.4</td><td class="n">39 %</td><td class="n">64 mV</td></tr>
+          <tr><td>2200 µF from each rail to ground</td><td class="n">6.00 V</td><td class="n">3.00</td><td class="n">≤ 1 %</td><td class="n">0.03 mV</td></tr>
+        </tbody>
+      </table></div></li>
+    <li><h3>Would this be useful for teaching?</h3>
+      <p>For example, letting students compare their own filter against alternatives under one frozen bench, with the simulator as the referee. What would it need before you would trust it in a lab?</p></li>
+  </ol>
+</section>
+
+<section>
+  <span class="eyebrow">Reproduce it</span>
+  <pre>spice experiment compare --spec examples/experiments/interference-filter/spec.json \
+    --candidates examples/experiments/interference-filter
+spice experiment candidates RUN_ID          # leaderboard
+spice experiment montecarlo RUN_ID -n 200   # tolerance study of the winner
+spice view RUN_ID                           # browser view of every candidate
+spice export RUN_ID                         # KiCad schematics + ngspice decks</pre>
+</section>
+
+<footer>All numbers on this page come from saved ngspice runs (experiment 0a618bcf, Monte Carlo seed 1 and seed 7). No values were edited by hand.</footer>
+</div>
+
+<script type="application/json" id="data">{"ac":{"no_filter":[[10.0,3.00005],[10.96,3.00005],[12.02,3.00005],[13.18,3.00005],[14.45,3.00005],[15.85,3.00005],[17.38,3.00005],[19.05,3.00005],[20.89,3.00005],[22.91,3.00005],[25.12,3.00005],[27.54,3.00005],[30.2,3.00005],[33.11,3.00005],[36.31,3.00005],[39.81,3.00005],[43.65,3.00005],[47.86,3.00005],[52.48,3.00005],[57.54,3.00005],[63.1,3.00005],[69.18,3.00005],[75.86,3.00005],[83.18,3.00005],[91.2,3.00005],[100.0,3.00005],[109.65,3.00005],[120.23,3.00005],[131.83,3.00005],[144.54,3.00005],[158.49,3.00005],[173.78,3.00005],[190.55,3.00005],[208.93,3.00005],[229.09,3.00005],[251.19,3.00005],[275.42,3.00005],[302.0,3.00005],[331.13,3.00005],[363.08,3.00005],[398.11,3.00005],[436.52,3.00005],[478.63,3.00005],[524.81,3.00005],[575.44,3.00005],[630.96,3.00005],[691.83,3.00004],[758.58,3.00004],[831.76,3.00004],[912.01,3.00004],[1000.0,3.00004],[1096.48,3.00004],[1202.26,3.00004],[1318.26,3.00003],[1445.44,3.00003],[1584.89,3.00003],[1737.8,3.00002],[1905.46,3.00001],[2089.3,3.00001],[2290.87,3.0],[2511.89,2.99999],[2754.23,2.99998],[3019.95,2.99996],[3311.31,2.99994],[3630.78,2.99992],[3981.07,2.9999],[4365.16,2.99987],[4786.3,2.99983],[5248.07,2.99978],[5754.4,2.99973],[6309.57,2.99967],[6918.31,2.99959],[7585.78,2.99949],[8317.64,2.99938],[9120.11,2.99925],[10000.0,2.99909],[10964.78,2.99889],[12022.64,2.99866],[13182.57,2.99838],[14454.4,2.99804],[15848.93,2.99763],[17378.01,2.99714],[19054.61,2.99656],[20892.96,2.99585],[22908.68,2.995],[25118.86,2.99399],[27542.29,2.99276],[30199.52,2.9913],[33113.11,2.98954],[36307.81,2.98742],[39810.72,2.98489],[43651.58,2.98185],[47863.01,2.9782],[52480.75,2.97384],[57543.99,2.96862],[63095.73,2.96238],[69183.1,2.95492],[75857.76,2.94602],[83176.38,2.93543],[91201.08,2.92284],[100000.0,2.9079],[109647.82,2.89023],[120226.44,2.86938],[131825.67,2.84487],[144543.98,2.81618],[158489.32,2.78276],[173780.08,2.74403],[190546.07,2.69943],[208929.61,2.64844],[229086.77,2.5906],[251188.64,2.52558],[275422.87,2.45317],[301995.17,2.37338],[331131.12,2.28645],[363078.05,2.19282],[398107.17,2.09321],[436515.83,1.98853],[478630.09,1.87985],[524807.46,1.76839],[575439.94,1.6554],[630957.34,1.54212],[691830.97,1.42972],[758577.58,1.31927],[831763.77,1.2117],[912010.84,1.10777],[1000000.0,1.00811]],"shunt_c_82nf":[[10.0,3.00003],[10.96,3.00003],[12.02,3.00003],[13.18,3.00002],[14.45,3.00002],[15.85,3.00001],[17.38,3.00001],[19.05,3.0],[20.89,2.99999],[22.91,2.99997],[25.12,2.99996],[27.54,2.99994],[30.2,2.99992],[33.11,2.99989],[36.31,2.99986],[39.81,2.99982],[43.65,2.99978],[47.86,2.99972],[52.48,2.99965],[57.54,2.99957],[63.1,2.99948],[69.18,2.99936],[75.86,2.99922],[83.18,2.99906],[91.2,2.99886],[100.0,2.99862],[109.65,2.99833],[120.23,2.99798],[131.83,2.99756],[144.54,2.99706],[158.49,2.99645],[173.78,2.99573],[190.55,2.99486],[208.93,2.99381],[229.09,2.99255],[251.19,2.99104],[275.42,2.98923],[302.0,2.98706],[331.13,2.98445],[363.08,2.98133],[398.11,2.97758],[436.52,2.9731],[478.63,2.96774],[524.81,2.96133],[575.44,2.95368],[630.96,2.94455],[691.83,2.9337],[758.58,2.92081],[831.76,2.90553],[912.01,2.88747],[1000.0,2.86621],[1096.48,2.84125],[1202.26,2.81209],[1318.26,2.77819],[1445.44,2.73902],[1584.89,2.69404],[1737.8,2.6428],[1905.46,2.58489],[2089.3,2.52007],[2290.87,2.44823],[2511.89,2.36949],[2754.23,2.28418],[3019.95,2.19286],[3311.31,2.09634],[3630.78,1.9956],[3981.07,1.89177],[4365.16,1.78608],[4786.3,1.67976],[5248.07,1.57402],[5754.4,1.46994],[6309.57,1.3685],[6918.31,1.2705],[7585.78,1.17656],[8317.64,1.08716],[9120.11,1.0026],[10000.0,0.92305],[10964.78,0.84857],[12022.64,0.77911],[13182.57,0.71456],[14454.4,0.65475],[15848.93,0.59946],[17378.01,0.54848],[19054.61,0.50154],[20892.96,0.45838],[22908.68,0.41876],[25118.86,0.38241],[27542.29,0.3491],[30199.52,0.31859],[33113.11,0.29067],[36307.81,0.26512],[39810.72,0.24174],[43651.58,0.22037],[47863.01,0.20083],[52480.75,0.18296],[57543.99,0.16662],[63095.73,0.15169],[69183.1,0.13802],[75857.76,0.12552],[83176.38,0.11409],[91201.08,0.10362],[100000.0,0.09403],[109647.82,0.08524],[120226.44,0.07719],[131825.67,0.06981],[144543.98,0.06303],[158489.32,0.0568],[173780.08,0.05109],[190546.07,0.04584],[208929.61,0.04102],[229086.77,0.0366],[251188.64,0.03255],[275422.87,0.02883],[301995.17,0.02544],[331131.12,0.02236],[363078.05,0.01956],[398107.17,0.01703],[436515.83,0.01476],[478630.09,0.01272],[524807.46,0.01092],[575439.94,0.00932],[630957.34,0.00792],[691830.97,0.0067],[758577.58,0.00564],[831763.77,0.00472],[912010.84,0.00394],[1000000.0,0.00327]],"shunt_47nf_feedback_12nf":[[10.0,3.00004],[10.96,3.00004],[12.02,3.00004],[13.18,3.00004],[14.45,3.00003],[15.85,3.00003],[17.38,3.00003],[19.05,3.00002],[20.89,3.00002],[22.91,3.00001],[25.12,3.0],[27.54,2.99999],[30.2,2.99998],[33.11,2.99996],[36.31,2.99995],[39.81,2.99993],[43.65,2.9999],[47.86,2.99987],[52.48,2.99983],[57.54,2.99979],[63.1,2.99974],[69.18,2.99967],[75.86,2.9996],[83.18,2.99951],[91.2,2.9994],[100.0,2.99927],[109.65,2.99911],[120.23,2.99892],[131.83,2.99869],[144.54,2.99841],[158.49,2.99808],[173.78,2.99769],[190.55,2.99721],[208.93,2.99663],[229.09,2.99594],[251.19,2.99512],[275.42,2.99412],[302.0,2.99292],[331.13,2.99149],[363.08,2.98976],[398.11,2.98769],[436.52,2.9852],[478.63,2.98222],[524.81,2.97864],[575.44,2.97434],[630.96,2.9692],[691.83,2.96304],[758.58,2.95568],[831.76,2.94687],[912.01,2.93636],[1000.0,2.92382],[1096.48,2.9089],[1202.26,2.89117],[1318.26,2.87015],[1445.44,2.84531],[1584.89,2.81605],[1737.8,2.78169],[1905.46,2.74155],[2089.3,2.69489],[2290.87,2.64097],[2511.89,2.5791],[2754.23,2.50867],[3019.95,2.42923],[3311.31,2.34053],[3630.78,2.24262],[3981.07,2.13587],[4365.16,2.02108],[4786.3,1.89943],[5248.07,1.77249],[5754.4,1.64213],[6309.57,1.51047],[6918.31,1.37967],[7585.78,1.25183],[8317.64,1.12888],[9120.11,1.01241],[10000.0,0.90365],[10964.78,0.8034],[12022.64,0.71208],[13182.57,0.62978],[14454.4,0.55625],[15848.93,0.49105],[17378.01,0.43359],[19054.61,0.38318],[20892.96,0.33909],[22908.68,0.3006],[25118.86,0.26703],[27542.29,0.23774],[30199.52,0.21214],[33113.11,0.18974],[36307.81,0.17008],[39810.72,0.15278],[43651.58,0.13751],[47863.01,0.12398],[52480.75,0.11196],[57543.99,0.10125],[63095.73,0.09168],[69183.1,0.0831],[75857.76,0.07539],[83176.38,0.06846],[91201.08,0.0622],[100000.0,0.05655],[109647.82,0.05144],[120226.44,0.0468],[131825.67,0.0426],[144543.98,0.03879],[158489.32,0.03532],[173780.08,0.03218],[190546.07,0.02931],[208929.61,0.0267],[229086.77,0.02433],[251188.64,0.02216],[275422.87,0.02019],[301995.17,0.01839],[331131.12,0.01675],[363078.05,0.01525],[398107.17,0.01389],[436515.83,0.01263],[478630.09,0.01149],[524807.46,0.01044],[575439.94,0.00947],[630957.34,0.00858],[691830.97,0.00776],[758577.58,0.007],[831763.77,0.00629],[912010.84,0.00562],[1000000.0,0.00499]],"lc_8m2h_47nf":[[10.0,3.00005],[10.96,3.00005],[12.02,3.00005],[13.18,3.00005],[14.45,3.00005],[15.85,3.00005],[17.38,3.00005],[19.05,3.00005],[20.89,3.00005],[22.91,3.00005],[25.12,3.00005],[27.54,3.00005],[30.2,3.00004],[33.11,3.00004],[36.31,3.00004],[39.81,3.00004],[43.65,3.00004],[47.86,3.00004],[52.48,3.00004],[57.54,3.00003],[63.1,3.00003],[69.18,3.00003],[75.86,3.00002],[83.18,3.00002],[91.2,3.00001],[100.0,3.0],[109.65,2.99999],[120.23,2.99998],[131.83,2.99997],[144.54,2.99995],[158.49,2.99993],[173.78,2.99991],[190.55,2.99988],[208.93,2.99985],[229.09,2.9998],[251.19,2.99975],[275.42,2.99969],[302.0,2.99962],[331.13,2.99954],[363.08,2.99943],[398.11,2.9993],[436.52,2.99915],[478.63,2.99897],[524.81,2.99874],[575.44,2.99847],[630.96,2.99814],[691.83,2.99775],[758.58,2.99726],[831.76,2.99667],[912.01,2.99595],[1000.0,2.99506],[1096.48,2.99397],[1202.26,2.99263],[1318.26,2.99096],[1445.44,2.98888],[1584.89,2.98627],[1737.8,2.98298],[1905.46,2.97881],[2089.3,2.97349],[2290.87,2.96664],[2511.89,2.95779],[2754.23,2.94627],[3019.95,2.93119],[3311.31,2.91139],[3630.78,2.88531],[3981.07,2.85099],[4365.16,2.80593],[4786.3,2.74719],[5248.07,2.67153],[5754.4,2.57575],[6309.57,2.45734],[6918.31,2.3153],[7585.78,2.15094],[8317.64,1.96828],[9120.11,1.7738],[10000.0,1.5753],[10964.78,1.38059],[12022.64,1.1962],[13182.57,1.02667],[14454.4,0.87453],[15848.93,0.74056],[17378.01,0.62429],[19054.61,0.52448],[20892.96,0.4395],[22908.68,0.36759],[25118.86,0.30699],[27542.29,0.2561],[30199.52,0.21346],[33113.11,0.1778],[36307.81,0.14801],[39810.72,0.12316],[43651.58,0.10243],[47863.01,0.08516],[52480.75,0.07077],[57543.99,0.05879],[63095.73,0.04882],[69183.1,0.04052],[75857.76,0.03361],[83176.38,0.02786],[91201.08,0.02308],[100000.0,0.0191],[109647.82,0.01579],[120226.44,0.01304],[131825.67,0.01076],[144543.98,0.00886],[158489.32,0.00728],[173780.08,0.00597],[190546.07,0.00489],[208929.61,0.00399],[229086.77,0.00325],[251188.64,0.00263],[275422.87,0.00213],[301995.17,0.00171],[331131.12,0.00137],[363078.05,0.00109],[398107.17,0.00087],[436515.83,0.00069],[478630.09,0.00054],[524807.46,0.00042],[575439.94,0.00033],[630957.34,0.00026],[691830.97,0.0002],[758577.58,0.00015],[831763.77,0.00012],[912010.84,9e-05],[1000000.0,7e-05]],"feedback_cap_12nf":[[10.0,3.00005],[10.96,3.00005],[12.02,3.00004],[13.18,3.00004],[14.45,3.00004],[15.85,3.00004],[17.38,3.00004],[19.05,3.00004],[20.89,3.00004],[22.91,3.00003],[25.12,3.00003],[27.54,3.00003],[30.2,3.00002],[33.11,3.00001],[36.31,3.00001],[39.81,3.0],[43.65,2.99999],[47.86,2.99998],[52.48,2.99996],[57.54,2.99995],[63.1,2.99992],[69.18,2.9999],[75.86,2.99987],[83.18,2.99983],[91.2,2.99979],[100.0,2.99974],[109.65,2.99967],[120.23,2.9996],[131.83,2.99951],[144.54,2.9994],[158.49,2.99926],[173.78,2.99911],[190.55,2.99892],[208.93,2.99869],[229.09,2.99841],[251.19,2.99808],[275.42,2.99768],[302.0,2.9972],[331.13,2.99663],[363.08,2.99594],[398.11,2.99511],[436.52,2.99412],[478.63,2.99292],[524.81,2.99149],[575.44,2.98977],[630.96,2.9877],[691.83,2.98522],[758.58,2.98226],[831.76,2.9787],[912.01,2.97445],[1000.0,2.96936],[1096.48,2.96329],[1202.26,2.95604],[1318.26,2.94741],[1445.44,2.93715],[1584.89,2.92498],[1737.8,2.91058],[1905.46,2.8936],[2089.3,2.87363],[2290.87,2.85025],[2511.89,2.82302],[2754.23,2.79147],[3019.95,2.75516],[3311.31,2.71366],[3630.78,2.66662],[3981.07,2.6138],[4365.16,2.55508],[4786.3,2.49053],[5248.07,2.42041],[5754.4,2.34521],[6309.57,2.26564],[6918.31,2.18261],[7585.78,2.09719],[8317.64,2.01055],[9120.11,1.92393],[10000.0,1.83853],[10964.78,1.75546],[12022.64,1.67573],[13182.57,1.60014],[14454.4,1.52935],[15848.93,1.46379],[17378.01,1.40372],[19054.61,1.34923],[20892.96,1.30027],[22908.68,1.25664],[25118.86,1.21809],[27542.29,1.18428],[30199.52,1.15481],[33113.11,1.12928],[36307.81,1.1073],[39810.72,1.08845],[43651.58,1.07236],[47863.01,1.05867],[52480.75,1.04707],[57543.99,1.03726],[63095.73,1.02897],[69183.1,1.022],[75857.76,1.01613],[83176.38,1.01119],[91201.08,1.00704],[100000.0,1.00354],[109647.82,1.00059],[120226.44,0.9981],[131825.67,0.99598],[144543.98,0.99416],[158489.32,0.99258],[173780.08,0.99119],[190546.07,0.98995],[208929.61,0.9888],[229086.77,0.9877],[251188.64,0.98661],[275422.87,0.98548],[301995.17,0.98426],[331131.12,0.9829],[363078.05,0.9813],[398107.17,0.97939],[436515.83,0.97704],[478630.09,0.97409],[524807.46,0.97032],[575439.94,0.96547],[630957.34,0.95915],[691830.97,0.95088],[758577.58,0.94004],[831763.77,0.92585],[912010.84,0.90735],[1000000.0,0.88351]]},"mc":{"8509f2a6f22e2e91":{"name":"shunt_47nf_feedback_12nf","req":{"samples":200,"seed":1,"distribution":"uniform","resistor_tolerance":0.01,"capacitor_tolerance":0.05,"inductor_tolerance":0.1},"yield":{"passing":200,"attempted":200,"fraction":1.0,"wilson95":[0.9811546736227335,1.0],"limiting_requirement":null},"counts":{"attempted":200,"ok":200,"invalid":0,"timeout":0,"failed":0,"invalid_reasons":{}},"pts":[[2.9461,0.12324,1],[2.9221,0.11591,1],[2.9259,0.11901,1],[2.9183,0.1139,1],[2.9139,0.11375,1],[2.927,0.12172,1],[2.9496,0.12325,1],[2.9242,0.11576,1],[2.896,0.12356,1],[2.9177,0.11754,1],[2.928,0.11511,1],[2.9238,0.11775,1],[2.9222,0.12116,1],[2.9099,0.11487,1],[2.8899,0.11599,1],[2.9178,0.11278,1],[2.9338,0.11957,1],[2.9489,0.11692,1],[2.9277,0.1156,1],[2.9405,0.12271,1],[2.9149,0.11722,1],[2.9232,0.11664,1],[2.9289,0.11576,1],[2.939,0.11549,1],[2.929,0.11871,1],[2.9106,0.1185,1],[2.9049,0.11714,1],[2.9289,0.11381,1],[2.9356,0.11648,1],[2.9342,0.11467,1],[2.9022,0.11979,1],[2.9266,0.11559,1],[2.9172,0.12193,1],[2.9342,0.11477,1],[2.9061,0.11538,1],[2.8921,0.11429,1],[2.9166,0.11689,1],[2.9118,0.1151,1],[2.9134,0.11801,1],[2.9313,0.11978,1],[2.9289,0.12101,1],[2.9281,0.11614,1],[2.8902,0.11627,1],[2.9256,0.12326,1],[2.9365,0.11372,1],[2.9609,0.12308,1],[2.9083,0.11462,1],[2.9321,0.11968,1],[2.9055,0.11591,1],[2.9404,0.11735,1],[2.9581,0.11761,1],[2.9275,0.11494,1],[2.898,0.11359,1],[2.9191,0.12016,1],[2.901,0.11369,1],[2.9312,0.12369,1],[2.9455,0.12109,1],[2.9096,0.11515,1],[2.9152,0.11459,1],[2.9281,0.11634,1],[2.914,0.11744,1],[2.9255,0.1211,1],[2.9213,0.11815,1],[2.9195,0.12304,1],[2.9068,0.12363,1],[2.938,0.11981,1],[2.9011,0.11365,1],[2.8953,0.1177,1],[2.9042,0.11576,1],[2.9335,0.12104,1],[2.9449,0.11815,1],[2.9397,0.11375,1],[2.9014,0.12232,1],[2.9152,0.12077,1],[2.9342,0.12402,1],[2.9148,0.11713,1],[2.9189,0.12192,1],[2.9378,0.1239,1],[2.9292,0.11734,1],[2.9289,0.12035,1],[2.9295,0.11681,1],[2.9536,0.12227,1],[2.9088,0.11784,1],[2.9501,0.1154,1],[2.9206,0.12334,1],[2.9183,0.1189,1],[2.9133,0.11347,1],[2.9115,0.11958,1],[2.9154,0.11767,1],[2.9003,0.12106,1],[2.9333,0.12177,1],[2.937,0.12362,1],[2.9301,0.11871,1],[2.9472,0.11677,1],[2.9027,0.11576,1],[2.9444,0.11584,1],[2.8953,0.12338,1],[2.9463,0.11377,1],[2.9032,0.11316,1],[2.9088,0.11639,1],[2.9463,0.11948,1],[2.9222,0.11464,1],[2.9366,0.11608,1],[2.9185,0.11987,1],[2.923,0.1171,1],[2.9022,0.12247,1],[2.9451,0.11341,1],[2.9096,0.11644,1],[2.9549,0.12037,1],[2.9231,0.11696,1],[2.9245,0.11312,1],[2.9098,0.12076,1],[2.9275,0.12296,1],[2.9095,0.1156,1],[2.9467,0.1157,1],[2.9363,0.11545,1],[2.9231,0.11643,1],[2.9556,0.11835,1],[2.9139,0.11533,1],[2.9126,0.11467,1],[2.9145,0.11771,1],[2.9198,0.11462,1],[2.9189,0.11321,1],[2.9046,0.11693,1],[2.8988,0.12377,1],[2.9329,0.11476,1],[2.9314,0.11335,1],[2.9066,0.11422,1],[2.9107,0.12366,1],[2.9576,0.12306,1],[2.9079,0.1133,1],[2.9248,0.11771,1],[2.9295,0.1143,1],[2.9365,0.11397,1],[2.9074,0.118,1],[2.9464,0.12377,1],[2.9211,0.11447,1],[2.903,0.12184,1],[2.9487,0.12126,1],[2.9226,0.11934,1],[2.9567,0.11904,1],[2.9188,0.11852,1],[2.9239,0.11955,1],[2.9202,0.11548,1],[2.8991,0.11321,1],[2.9056,0.11854,1],[2.913,0.11921,1],[2.9161,0.11584,1],[2.9408,0.12267,1],[2.9335,0.12098,1],[2.9044,0.11568,1],[2.9181,0.12224,1],[2.9185,0.12258,1],[2.9159,0.12395,1],[2.9356,0.12133,1],[2.9286,0.11377,1],[2.9215,0.11593,1],[2.9196,0.11827,1],[2.9103,0.12233,1],[2.9283,0.12278,1],[2.9268,0.11668,1],[2.9244,0.11273,1],[2.9271,0.11432,1],[2.9516,0.11877,1],[2.9372,0.11444,1],[2.9055,0.12279,1],[2.9067,0.11734,1],[2.9153,0.11995,1],[2.9526,0.11964,1],[2.923,0.11478,1],[2.9308,0.12012,1],[2.9378,0.12107,1],[2.9261,0.11542,1],[2.9106,0.12133,1],[2.9424,0.12445,1],[2.9277,0.115,1],[2.9278,0.1159,1],[2.9316,0.11865,1],[2.9144,0.12146,1],[2.914,0.11634,1],[2.9363,0.11309,1],[2.9321,0.12311,1],[2.9405,0.1185,1],[2.9373,0.1131,1],[2.9222,0.11306,1],[2.9338,0.12028,1],[2.9251,0.11432,1],[2.9452,0.11379,1],[2.9254,0.12046,1],[2.9253,0.11278,1],[2.9436,0.11248,1],[2.908,0.11375,1],[2.9457,0.11508,1],[2.9163,0.12013,1],[2.9035,0.12373,1],[2.9186,0.11828,1],[2.9321,0.12423,1],[2.9172,0.11684,1],[2.9095,0.11568,1],[2.9552,0.11919,1]],"fails":[]},"d5918c62b9e038a0":{"name":"lc_8m2h_47nf","req":{"samples":200,"seed":1,"distribution":"uniform","resistor_tolerance":0.01,"capacitor_tolerance":0.05,"inductor_tolerance":0.1},"yield":{"passing":200,"attempted":200,"fraction":1.0,"wilson95":[0.9811546736227335,1.0],"limiting_requirement":null},"counts":{"attempted":200,"ok":200,"invalid":0,"timeout":0,"failed":0,"invalid_reasons":{}},"pts":[[3.0179,0.08095,1],[2.9941,0.07291,1],[2.9952,0.08324,1],[2.9907,0.07475,1],[2.9906,0.07103,1],[2.9969,0.0764,1],[3.0201,0.0811,1],[2.996,0.07239,1],[2.9634,0.08062,1],[2.9906,0.07176,1],[2.9976,0.08238,1],[2.9957,0.08154,1],[2.9895,0.08354,1],[2.9843,0.06911,1],[2.9571,0.08172,1],[2.9947,0.06837,1],[3.0044,0.08348,1],[3.0229,0.07273,1],[3.0018,0.07212,1],[3.0107,0.08388,1],[2.9889,0.07143,1],[2.9956,0.07245,1],[3.0029,0.07758,1],[3.0081,0.08278,1],[2.9937,0.08493,1],[2.9805,0.08178,1],[2.9804,0.07043,1],[3.0065,0.0701,1],[3.0114,0.07256,1],[3.0074,0.07984,1],[2.9775,0.07462,1],[3.0013,0.07083,1],[2.9841,0.08639,1],[3.0043,0.07893,1],[2.977,0.08168,1],[2.9603,0.07604,1],[2.9947,0.07142,1],[2.9882,0.07047,1],[2.9824,0.08126,1],[3.0054,0.07273,1],[3.0029,0.07485,1],[2.9971,0.0792,1],[2.9542,0.08323,1],[2.9942,0.08574,1],[3.0126,0.07218,1],[3.0284,0.08638,1],[2.9821,0.07314,1],[2.9988,0.08647,1],[2.9796,0.07312,1],[3.0128,0.07319,1],[3.0318,0.07671,1],[3.0028,0.07407,1],[2.9693,0.07123,1],[2.9897,0.07452,1],[2.9774,0.0717,1],[3.0056,0.07867,1],[3.0136,0.08558,1],[2.9825,0.07932,1],[2.9835,0.08221,1],[3.0041,0.0705,1],[2.9821,0.08264,1],[2.9914,0.08361,1],[2.9913,0.08417,1],[2.9861,0.08575,1],[2.9746,0.07942,1],[3.0107,0.07548,1],[2.9734,0.0779,1],[2.9658,0.07422,1],[2.9753,0.07177,1],[3.0016,0.08431,1],[3.0229,0.07395,1],[3.0076,0.08191,1],[2.9729,0.08053,1],[2.9891,0.0747,1],[3.004,0.07835,1],[2.9875,0.07705,1],[2.9904,0.08362,1],[3.0068,0.08338,1],[3.0014,0.07718,1],[3.0048,0.07623,1],[3.0025,0.07272,1],[3.0275,0.08148,1],[2.9813,0.07915,1],[3.0233,0.07774,1],[2.9902,0.07814,1],[2.9827,0.08451,1],[2.9818,0.07836,1],[2.982,0.07451,1],[2.9884,0.07727,1],[2.975,0.07328,1],[2.9991,0.08504,1],[3.0038,0.08695,1],[3.0048,0.0746,1],[3.0218,0.07479,1],[2.9781,0.07026,1],[3.0214,0.07468,1],[2.9653,0.08188,1],[3.0156,0.08007,1],[2.9741,0.08065,1],[2.9849,0.0728,1],[3.0163,0.08574,1],[2.9945,0.07543,1],[3.0075,0.07516,1],[2.9868,0.08003,1],[2.9927,0.08516,1],[2.9754,0.07425,1],[3.0194,0.07108,1],[2.9795,0.08119,1],[3.0226,0.08465,1],[2.9941,0.07528,1],[3.0008,0.07181,1],[2.9788,0.08448,1],[2.9947,0.08248,1],[2.9811,0.07663,1],[3.0131,0.08321,1],[3.0101,0.07694,1],[2.9891,0.08183,1],[3.0281,0.07931,1],[2.988,0.07254,1],[2.9881,0.07434,1],[2.9857,0.08033,1],[2.9944,0.07152,1],[2.9877,0.07688,1],[2.9736,0.07985,1],[2.9638,0.08236,1],[3.006,0.07148,1],[3.0093,0.06954,1],[2.9761,0.08135,1],[2.9841,0.07475,1],[3.0267,0.08776,1],[2.9815,0.07212,1],[3.0017,0.07289,1],[2.9996,0.07552,1],[3.0143,0.07273,1],[2.9753,0.08399,1],[3.0145,0.08473,1],[2.9922,0.07449,1],[2.974,0.07515,1],[3.0225,0.07906,1],[2.995,0.07973,1],[3.0278,0.08261,1],[2.991,0.07273,1],[2.9994,0.07466,1],[2.9924,0.08138,1],[2.9717,0.07355,1],[2.9808,0.07209,1],[2.984,0.08025,1],[2.9849,0.07992,1],[3.0122,0.08105,1],[2.9999,0.08452,1],[2.977,0.07191,1],[2.9885,0.07699,1],[2.9948,0.0752,1],[2.986,0.07592,1],[3.0071,0.08279,1],[2.9995,0.07473,1],[2.9992,0.07174,1],[2.9912,0.07463,1],[2.9766,0.08535,1],[2.9979,0.07863,1],[2.9958,0.08428,1],[2.9946,0.08036,1],[3.0009,0.07804,1],[3.0257,0.07876,1],[3.012,0.06971,1],[2.9753,0.07505,1],[2.9747,0.08013,1],[2.9844,0.07907,1],[3.0257,0.07924,1],[2.9995,0.07242,1],[3.0004,0.08683,1],[3.0074,0.0821,1],[3.0002,0.06988,1],[2.9783,0.08597,1],[3.0123,0.07985,1],[2.9971,0.08208,1],[3.0008,0.07552,1],[3.0046,0.07997,1],[2.9886,0.07847,1],[2.9879,0.07824,1],[3.0108,0.07789,1],[3.0055,0.08055,1],[3.0128,0.07307,1],[3.0102,0.07439,1],[2.9912,0.07863,1],[3.0053,0.07473,1],[2.9957,0.07956,1],[3.0222,0.07229,1],[2.9986,0.07335,1],[2.9974,0.07462,1],[3.017,0.0798,1],[2.9845,0.06968,1],[3.0181,0.07629,1],[2.9908,0.0747,1],[2.9704,0.08181,1],[2.9934,0.07721,1],[2.9965,0.08669,1],[2.9831,0.08357,1],[2.9792,0.07831,1],[3.0265,0.08324,1]],"fails":[]},"e75bc6e7d0f1c337":{"name":"shunt_47nf_feedback_12nf","req":{"samples":100,"seed":7,"distribution":"gaussian","resistor_tolerance":0.05,"capacitor_tolerance":0.2,"inductor_tolerance":0.1},"yield":{"passing":94,"attempted":100,"fraction":0.94,"wilson95":[0.8752318455410406,0.9722138760368118],"limiting_requirement":"output_mean_v"},"counts":{"attempted":100,"ok":100,"invalid":0,"timeout":0,"failed":0,"invalid_reasons":{}},"pts":[[2.9568,0.11308,1],[2.9583,0.1114,1],[2.9033,0.11592,1],[2.9586,0.12842,1],[2.9156,0.12347,1],[2.9611,0.12054,1],[2.9213,0.12241,1],[2.9537,0.108,1],[2.9621,0.12083,1],[2.8422,0.1155,0],[2.9654,0.12009,1],[2.9036,0.12008,1],[2.9892,0.12799,1],[2.9142,0.12516,1],[2.876,0.11605,1],[2.9557,0.11488,1],[2.9003,0.12414,1],[2.9069,0.11074,1],[2.9077,0.12122,1],[2.9467,0.13023,1],[2.915,0.11403,1],[2.8769,0.11416,1],[2.9499,0.12701,1],[2.9875,0.11087,1],[2.9121,0.11841,1],[3.0075,0.12483,1],[2.8996,0.11281,1],[2.967,0.1188,1],[2.9345,0.10596,1],[2.9405,0.11705,1],[2.9379,0.11365,1],[2.8925,0.12865,1],[3.0249,0.11241,0],[2.9606,0.10272,1],[2.9237,0.11969,1],[2.9218,0.10575,1],[2.9572,0.10344,1],[2.9711,0.1311,1],[2.8912,0.11467,1],[3.0125,0.12533,1],[2.9277,0.1362,1],[2.8544,0.1237,1],[2.9463,0.1286,1],[2.9199,0.11558,1],[2.9362,0.11063,1],[2.9364,0.13054,1],[2.925,0.1127,1],[2.8601,0.13154,1],[2.8745,0.10847,1],[2.8896,0.11533,1],[2.9146,0.10802,1],[2.8542,0.11857,1],[2.8764,0.11926,1],[2.8818,0.12957,1],[2.9329,0.11281,1],[2.9885,0.11198,1],[2.8688,0.1217,1],[2.8743,0.11321,1],[2.9446,0.10999,1],[2.8907,0.11796,1],[2.9255,0.1287,1],[2.882,0.11918,1],[2.9475,0.12451,1],[3.0537,0.13116,0],[2.8791,0.13598,1],[2.9043,0.11786,1],[2.941,0.10953,1],[2.8637,0.11741,1],[2.8808,0.10298,1],[2.9639,0.11907,1],[2.9327,0.11845,1],[2.9428,0.12738,1],[2.9655,0.11241,1],[2.8977,0.12761,1],[2.8974,0.11437,1],[2.8998,0.12314,1],[3.037,0.11944,0],[2.9569,0.13008,1],[2.928,0.12256,1],[2.9106,0.12867,1],[2.913,0.12049,1],[2.9219,0.12523,1],[3.0459,0.11351,0],[2.9572,0.1181,1],[2.9409,0.10674,1],[2.9732,0.1189,1],[2.9787,0.1279,1],[2.8974,0.11448,1],[2.9416,0.11901,1],[2.9418,0.11858,1],[2.9679,0.12315,1],[2.9404,0.1218,1],[2.9543,0.11912,1],[3.0285,0.12978,1],[2.877,0.11478,1],[3.0288,0.11956,0],[2.9419,0.10023,1],[2.8716,0.1148,1],[2.9662,0.13817,1],[2.8534,0.10802,1]],"fails":["output_1khz_vpeak","output_mean_v","signal_gain_1khz"]}}}</script>
+<script>
+(function(){
+const D = JSON.parse(document.getElementById('data').textContent);
+const NS='http://www.w3.org/2000/svg';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function el(tag, attrs, parent, text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+
+/* ---------- Figure 1: Bode magnitude ---------- */
+const series=[
+  {key:'shunt_47nf_feedback_12nf',label:'winner: 47 nF + 12 nF',color:'--ink',dash:'',w:2.2},
+  {key:'lc_8m2h_47nf',label:'LC 8.2 mH / 47 nF',color:'--pass',dash:'',w:1.8},
+  {key:'shunt_c_82nf',label:'single 82 nF cap',color:'--muted',dash:'6 4',w:1.5},
+  {key:'feedback_cap_12nf',label:'12 nF across RF only',color:'--muted',dash:'1.5 3.5',w:1.6},
+  {key:'no_filter',label:'no filter',color:'--muted',dash:'',w:1.2},
+];
+function legend(id, items){
+  const L=document.getElementById(id); L.textContent='';
+  for(const s of items){const sp=document.createElement('span');const sv=el('svg',{width:28,height:10,viewBox:'0 0 28 10','aria-hidden':'true'},sp);
+    if(s.dot){el('circle',{cx:14,cy:5,r:3.2,fill:s.hollow?'none':css(s.color),stroke:css(s.color),'stroke-width':1.2},sv);}
+    else el('line',{x1:1,y1:5,x2:27,y2:5,stroke:css(s.color),'stroke-width':s.w,'stroke-dasharray':s.dash,fill:'none'},sv);
+    sp.appendChild(document.createTextNode(s.label));L.appendChild(sp);}
+}
+function bode(){
+  const W=820,H=380,m={l:58,r:18,t:16,b:44};
+  const fx=f=>m.l+(Math.log10(f)-1)/5*(W-m.l-m.r);
+  const ymin=-50,ymax=15; const fy=db=>m.t+(ymax-db)/(ymax-ymin)*(H-m.t-m.b);
+  const host=document.getElementById('bode'); host.textContent='';
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'AC magnitude in dB versus frequency for five candidates'},host);
+  // bound marks
+  const stopTop=fy(20*Math.log10(0.15));
+  el('rect',{x:fx(5e4),y:m.t,width:fx(1e6)-fx(5e4),height:stopTop-m.t,fill:css('--fail'),opacity:.07},s);
+  el('line',{x1:fx(5e4),x2:fx(1e6),y1:stopTop,y2:stopTop,stroke:css('--fail'),'stroke-width':1.2,'stroke-dasharray':'4 3'},s);
+  el('text',{x:fx(1e6)-4,y:stopTop-6,'text-anchor':'end','font-size':11,fill:css('--fail')},s,'≤ 0.15 (−16.5 dB) from 50 kHz');
+  const g1=fy(20*Math.log10(3.15)),g2=fy(20*Math.log10(2.85));
+  el('rect',{x:fx(1e3)-4,y:g1,width:8,height:g2-g1,fill:'none',stroke:css('--pass'),'stroke-width':1.4},s);
+  el('text',{x:fx(1e3)+8,y:g1-6,'font-size':11,fill:css('--pass')},s,'gain 2.85–3.15 at 1 kHz');
+  // grid
+  for(let d=1;d<=6;d++){const f=10**d;el('line',{x1:fx(f),x2:fx(f),y1:m.t,y2:H-m.b,stroke:css('--grid'),'stroke-width':1},s);
+    el('text',{x:fx(f),y:H-m.b+18,'text-anchor':'middle','font-size':11,fill:css('--muted')},s,['','10','100','1k','10k','100k','1M'][d]);
+    if(d<6)for(let k=2;k<10;k++)el('line',{x1:fx(k*f),x2:fx(k*f),y1:m.t,y2:H-m.b,stroke:css('--grid'),'stroke-width':.5},s);}
+  for(let db=-50;db<=10;db+=10){el('line',{x1:m.l,x2:W-m.r,y1:fy(db),y2:fy(db),stroke:css('--grid'),'stroke-width':1},s);
+    el('text',{x:m.l-8,y:fy(db)+4,'text-anchor':'end','font-size':11,fill:css('--muted')},s,db+'');}
+  el('text',{x:(m.l+W-m.r)/2,y:H-6,'text-anchor':'middle','font-size':11,fill:css('--muted')},s,'frequency (Hz)');
+  el('text',{x:14,y:(m.t+H-m.b)/2,'text-anchor':'middle','font-size':11,fill:css('--muted'),transform:`rotate(-90 14 ${(m.t+H-m.b)/2})`},s,'|Vout/Vsig| (dB)');
+  el('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:'none',stroke:css('--ink'),'stroke-width':1},s);
+  // curves (draw in reverse so winner is on top)
+  const clipId='bc'; const cp=el('clipPath',{id:clipId},el('defs',{},s)); el('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b},cp);
+  for(const sr of [...series].reverse()){const pts=D.ac[sr.key];if(!pts)continue;
+    const d=pts.map((p,i)=>(i?'L':'M')+fx(p[0]).toFixed(1)+' '+fy(20*Math.log10(p[1])).toFixed(1)).join('');
+    el('path',{d,fill:'none',stroke:css(sr.color),'stroke-width':sr.w,'stroke-dasharray':sr.dash,'clip-path':`url(#${clipId})`,'stroke-linejoin':'round'},s);}
+  legend('bodeLegend',series);
+}
+
+/* ---------- Figure 2: schematic ---------- */
+function schem(){
+  const W=690,H=330; const host=document.getElementById('schem'); host.textContent='';
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Schematic of the winning circuit'},host);
+  const ink=css('--ink'),mut=css('--muted');
+  const ln=(x1,y1,x2,y2,c=ink)=>el('line',{x1,y1,x2,y2,stroke:c,'stroke-width':1.6,'stroke-linecap':'round'},s);
+  const dot=(x,y)=>el('circle',{cx:x,cy:y,r:3.2,fill:ink},s);
+  const txt=(x,y,t,o={})=>el('text',Object.assign({x,y,'font-size':12,fill:o.c||ink,'text-anchor':o.a||'middle'},o.attrs||{}),s,t);
+  const gnd=(x,y,c=ink)=>{ln(x,y,x,y+8,c);ln(x-10,y+8,x+10,y+8,c);ln(x-6,y+12,x+6,y+12,c);ln(x-2.5,y+16,x+2.5,y+16,c);};
+  function resH(x1,x2,y,c=ink){const L=x2-x1,a=x1+L*.25,b=x2-L*.25;ln(x1,y,a,y,c);let d=`M${a} ${y}`;const n=6,st=(b-a)/n;for(let i=0;i<n;i++)d+=` L${a+st*(i+.5)} ${y+(i%2?6:-6)}`;d+=` L${b} ${y}`;el('path',{d,fill:'none',stroke:c,'stroke-width':1.6,'stroke-linejoin':'round'},s);ln(b,y,x2,y,c);}
+  function resV(x,y1,y2,c=ink){const L=y2-y1,a=y1+L*.25,b=y2-L*.25;ln(x,y1,x,a,c);let d=`M${x} ${a}`;const n=6,st=(b-a)/n;for(let i=0;i<n;i++)d+=` L${x+(i%2?6:-6)} ${a+st*(i+.5)}`;d+=` L${x} ${b}`;el('path',{d,fill:'none',stroke:c,'stroke-width':1.6,'stroke-linejoin':'round'},s);ln(x,b,x,y2,c);}
+  function capV(x,y1,y2,c=ink){const m=(y1+y2)/2;ln(x,y1,x,m-4,c);ln(x-12,m-4,x+12,m-4,c);ln(x-12,m+4,x+12,m+4,c);ln(x,m+4,x,y2,c);}
+  function capH(x1,x2,y,c=ink){const m=(x1+x2)/2;ln(x1,y,m-4,y,c);ln(m-4,y-12,m-4,y+12,c);ln(m+4,y-12,m+4,y+12,c);ln(m+4,y,x2,y,c);}
+  // bench source (grey)
+  el('circle',{cx:60,cy:150,r:20,fill:'none',stroke:mut,'stroke-width':1.6},s);
+  el('path',{d:'M48 150 q6 -10 12 0 t12 0',fill:'none',stroke:mut,'stroke-width':1.4},s);
+  ln(60,130,60,90,mut); ln(60,170,60,200,mut); gnd(60,200,mut);
+  txt(60,232,'2 V + 1 V @1 kHz',{c:mut}); txt(60,247,'+ 0.2 V @50 kHz',{c:mut});
+  resH(60,160,90,mut); txt(110,74,'RSOURCE 600 Ω',{c:mut});
+  // input node and CIN
+  ln(160,90,330,90); dot(230,90); capV(230,90,170); gnd(230,170);
+  txt(248,134,'CIN',{a:'start',attrs:{'font-weight':600}}); txt(248,149,'47 nF',{a:'start'});
+  // op-amp
+  el('path',{d:'M330 70 L330 170 L420 120 Z',fill:'none',stroke:ink,'stroke-width':1.8,'stroke-linejoin':'round'},s);
+  txt(340,95,'+',{a:'start'}); txt(340,153,'−',{a:'start'}); txt(357,124,'U1',{a:'middle',attrs:{'font-size':11}}); txt(357,138,'LM741',{a:'middle',attrs:{'font-size':10,fill:mut}});
+  ln(375,95,375,58); txt(375,52,'+12 V'); ln(375,145,375,175); txt(375,190,'−12 V');
+  // output
+  ln(420,120,560,120); dot(500,120); dot(560,120); txt(590,124,'out',{a:'start'});
+  resV(560,120,210,mut); gnd(560,210,mut); txt(572,170,'RLOAD 10 kΩ',{a:'start',c:mut});
+  // inverting node and feedback
+  ln(330,150,300,150); ln(300,150,300,300); dot(300,250);
+  resH(300,500,250); ln(500,250,500,120); txt(400,236,'RF 2 kΩ');
+  ln(300,300,365,300); capH(365,435,300); ln(435,300,500,300); ln(500,300,500,250); dot(500,250);
+  txt(400,326,'CF 12 nF',{attrs:{'font-weight':600}});
+  // RG from inverting node to ground (left)
+  dot(300,200); ln(300,200,270,200); resV(270,200,262); gnd(270,262);
+  txt(256,228,'RG 1 kΩ',{a:'end'});
+}
+
+/* ---------- Figure 3: Monte Carlo scatter ---------- */
+function mc(){
+  const studies=[
+    {id:'e75bc6e7d0f1c337',label:'winner, wide tolerance (R 5 %, C 20 %, Gaussian, n = 100)',color:'--muted',hollow:true},
+    {id:'d5918c62b9e038a0',label:'LC filter, default tolerance (n = 200)',color:'--pass'},
+    {id:'8509f2a6f22e2e91',label:'winner, default tolerance (n = 200)',color:'--ink'},
+  ];
+  // stats tiles
+  const st=document.getElementById('mcStats'); st.textContent='';
+  const pct=x=>(x*100).toFixed(1).replace(/\.0$/,'')+' %';
+  for(const sd of [studies[2],studies[1],studies[0]]){const S=D.mc[sd.id];const y=S.yield;
+    const div=document.createElement('div');
+    const b=document.createElement('span');b.className='big';b.textContent=`${y.passing} / ${y.attempted}`;
+    const l=document.createElement('span');l.className='lbl';
+    l.textContent=`${S.name === 'shunt_47nf_feedback_12nf' ? 'Winner' : 'LC filter'} · R ${pct(S.req.resistor_tolerance)}, C ${pct(S.req.capacitor_tolerance)}${S.name.startsWith('lc')?', L '+pct(S.req.inductor_tolerance):''} · ${S.req.distribution} · seed ${S.req.seed}. 95 % Wilson interval ${pct(y.wilson95[0])} – ${pct(Math.min(1,y.wilson95[1]))}.`;
+    div.append(b,l);st.appendChild(div);}
+  const W=820,H=400,m={l:64,r:18,t:16,b:48};
+  const all=studies.flatMap(sd=>D.mc[sd.id].pts);
+  const xmin=Math.min(2.80,...all.map(p=>p[0]))-0.01,xmax=Math.max(3.08,...all.map(p=>p[0]))+0.01;
+  const ymin=0.04,ymax=Math.max(0.17,...all.map(p=>p[1]))+0.005;
+  const fx=x=>m.l+(x-xmin)/(xmax-xmin)*(W-m.l-m.r), fy=y=>m.t+(ymax-y)/(ymax-ymin)*(H-m.t-m.b);
+  const host=document.getElementById('mc'); host.textContent='';
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Monte Carlo samples: 1 kHz gain versus 50 kHz transfer'},host);
+  // shade failing regions
+  const fail=css('--fail');
+  el('rect',{x:m.l,y:m.t,width:fx(2.85)-m.l,height:H-m.t-m.b,fill:fail,opacity:.06},s);
+  el('rect',{x:fx(2.85),y:m.t,width:W-m.r-fx(2.85),height:fy(0.15)-m.t,fill:fail,opacity:.06},s);
+  // grid
+  for(let x=Math.ceil(xmin*20)/20;x<=xmax;x+=0.05){el('line',{x1:fx(x),x2:fx(x),y1:m.t,y2:H-m.b,stroke:css('--grid')},s);el('text',{x:fx(x),y:H-m.b+18,'text-anchor':'middle','font-size':11,fill:css('--muted')},s,x.toFixed(2));}
+  for(let y=0.04;y<=ymax+1e-9;y+=0.02){el('line',{x1:m.l,x2:W-m.r,y1:fy(y),y2:fy(y),stroke:css('--grid')},s);el('text',{x:m.l-8,y:fy(y)+4,'text-anchor':'end','font-size':11,fill:css('--muted')},s,y.toFixed(2));}
+  el('line',{x1:fx(2.85),x2:fx(2.85),y1:m.t,y2:H-m.b,stroke:fail,'stroke-width':1.2,'stroke-dasharray':'4 3'},s);
+  el('line',{x1:m.l,x2:W-m.r,y1:fy(0.15),y2:fy(0.15),stroke:fail,'stroke-width':1.2,'stroke-dasharray':'4 3'},s);
+  el('text',{x:fx(2.85)-6,y:m.t+14,'text-anchor':'end','font-size':11,fill:fail},s,'gain < 2.85 fails');
+  el('text',{x:W-m.r-6,y:fy(0.15)-6,'text-anchor':'end','font-size':11,fill:fail},s,'transfer > 0.15 fails');
+  for(const sd of studies){const c=css(sd.color);
+    for(const p of D.mc[sd.id].pts){
+      if(!p[2]){const x=fx(p[0]),y=fy(p[1]);el('path',{d:`M${x-4} ${y-4}L${x+4} ${y+4}M${x-4} ${y+4}L${x+4} ${y-4}`,stroke:fail,'stroke-width':1.6},s);continue;}
+      el('circle',{cx:fx(p[0]).toFixed(1),cy:fy(p[1]).toFixed(1),r:2.6,fill:sd.hollow?'none':c,stroke:c,'stroke-width':1,opacity:sd.hollow?.9:.75},s);}}
+  el('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:'none',stroke:css('--ink')},s);
+  el('text',{x:(m.l+W-m.r)/2,y:H-8,'text-anchor':'middle','font-size':11,fill:css('--muted')},s,'gain at 1 kHz');
+  el('text',{x:16,y:(m.t+H-m.b)/2,'text-anchor':'middle','font-size':11,fill:css('--muted'),transform:`rotate(-90 16 ${(m.t+H-m.b)/2})`},s,'transfer at 50 kHz');
+  legend('mcLegend',[...studies.slice().reverse().map(sd=>({label:sd.label,color:sd.color,dot:true,hollow:sd.hollow})),{label:'sample failing any bound',color:'--fail',dot:false,w:0,dash:''}]);
+  // replace last legend glyph with an x
+  const lg=document.getElementById('mcLegend').lastChild.querySelector('svg');lg.textContent='';el('path',{d:'M10 1L18 9M10 9L18 1',stroke:fail,'stroke-width':1.6},lg);
+}
+function draw(){bode();schem();mc();}
+draw();
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);}catch(e){}
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>

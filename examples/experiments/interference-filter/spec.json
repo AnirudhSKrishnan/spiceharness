@@ -1,0 +1,255 @@
+{
+  "sources": [
+    {
+      "ref": "signal",
+      "kind": "V",
+      "nodes": [
+        "sig",
+        "0"
+      ],
+      "dc": 2.0,
+      "waveform": "sine",
+      "amplitude": 1.0,
+      "frequency_hz": 1000.0
+    },
+    {
+      "ref": "interference",
+      "kind": "V",
+      "nodes": [
+        "src",
+        "sig"
+      ],
+      "dc": 0.0,
+      "waveform": "sine",
+      "amplitude": 0.2,
+      "frequency_hz": 50000.0
+    },
+    {
+      "ref": "positive",
+      "kind": "V",
+      "nodes": [
+        "vcc",
+        "0"
+      ],
+      "dc": 12.0
+    },
+    {
+      "ref": "negative",
+      "kind": "V",
+      "nodes": [
+        "vee",
+        "0"
+      ],
+      "dc": -12.0
+    }
+  ],
+  "loads": [
+    {
+      "ref": "RSOURCE",
+      "kind": "R",
+      "nodes": [
+        "src",
+        "feed"
+      ],
+      "value": 600.0
+    },
+    {
+      "ref": "RLOAD",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": 10000.0
+    }
+  ],
+  "probes": [
+    {
+      "name": "out",
+      "positive": "out",
+      "negative": "0"
+    }
+  ],
+  "sweep": {
+    "start_hz": 10.0,
+    "stop_hz": 1000000.0,
+    "points_per_decade": 100
+  },
+  "transient": {
+    "start_s": 0.005,
+    "stop_s": 0.01,
+    "step_s": 5e-07
+  },
+  "measurements": [
+    {
+      "name": "signal_gain_1khz",
+      "operator": "ac_magnitude",
+      "probe": "out",
+      "source": "signal",
+      "frequency_hz": 1000.0
+    },
+    {
+      "name": "passband_peak_gain",
+      "operator": "ac_max",
+      "probe": "out",
+      "source": "signal",
+      "band_start_hz": 10.0,
+      "band_stop_hz": 2000.0
+    },
+    {
+      "name": "interference_gain_50khz",
+      "operator": "ac_magnitude",
+      "probe": "out",
+      "source": "interference",
+      "frequency_hz": 50000.0
+    },
+    {
+      "name": "stopband_max_gain",
+      "operator": "ac_max",
+      "probe": "out",
+      "source": "interference",
+      "band_start_hz": 50000.0,
+      "band_stop_hz": 1000000.0
+    },
+    {
+      "name": "cutoff_hz",
+      "operator": "ac_cutoff_3db",
+      "probe": "out",
+      "source": "signal",
+      "reference_frequency_hz": 100.0,
+      "band_start_hz": 100.0,
+      "band_stop_hz": 1000000.0
+    },
+    {
+      "name": "output_mean_v",
+      "operator": "transient_mean",
+      "probe": "out"
+    },
+    {
+      "name": "output_1khz_vpeak",
+      "operator": "transient_fundamental",
+      "probe": "out",
+      "fundamental_hz": 1000.0
+    },
+    {
+      "name": "output_50khz_vpeak",
+      "operator": "transient_fundamental",
+      "probe": "out",
+      "fundamental_hz": 50000.0,
+      "harmonics": 2
+    },
+    {
+      "name": "output_thd",
+      "operator": "transient_thd",
+      "probe": "out",
+      "fundamental_hz": 1000.0
+    }
+  ],
+  "requirements": [
+    {
+      "metric": "signal_gain_1khz",
+      "minimum": 2.85,
+      "maximum": 3.15
+    },
+    {
+      "metric": "passband_peak_gain",
+      "maximum": 3.18
+    },
+    {
+      "metric": "interference_gain_50khz",
+      "maximum": 0.15
+    },
+    {
+      "metric": "stopband_max_gain",
+      "maximum": 0.15
+    },
+    {
+      "metric": "output_mean_v",
+      "minimum": 5.8,
+      "maximum": 6.2
+    },
+    {
+      "metric": "output_1khz_vpeak",
+      "minimum": 2.85,
+      "maximum": 3.15
+    },
+    {
+      "metric": "output_50khz_vpeak",
+      "maximum": 0.03
+    },
+    {
+      "metric": "output_thd",
+      "maximum": 0.01
+    }
+  ],
+  "baseline": {
+    "name": "no_filter",
+    "components": [
+      {
+        "ref": "U1",
+        "kind": "OPAMP",
+        "nodes": [
+          "input",
+          "inv",
+          "vcc",
+          "vee",
+          "out"
+        ],
+        "model": "LM741",
+        "package": "U1"
+      },
+      {
+        "ref": "RF",
+        "kind": "R",
+        "nodes": [
+          "out",
+          "inv"
+        ],
+        "value": 2000.0
+      },
+      {
+        "ref": "RG",
+        "kind": "R",
+        "nodes": [
+          "inv",
+          "0"
+        ],
+        "value": 1000.0
+      }
+    ],
+    "connections": [
+      [
+        "feed",
+        "input"
+      ]
+    ]
+  },
+  "protected_refs": [
+    "U1"
+  ],
+  "redesign_ports": [
+    "feed",
+    "input",
+    "inv",
+    "out",
+    "vcc",
+    "vee",
+    "0"
+  ],
+  "allowed_models": [
+    "LM741"
+  ],
+  "assumptions": [
+    "Signal: 2 V DC + 1 V peak at 1 kHz; interference: 0.2 V peak at 50 kHz in series with it (e.g. coupled from a nearby switching regulator).",
+    "Source impedance 600 ohm (fixture RSOURCE, src->feed); candidates may add parts between feed and the op-amp input, or reuse the 600 ohm as an RC filter, but cannot change it.",
+    "Load 10 kohm; ideal +/-12 V rails (supply noise is not part of this question).",
+    "LM741 vendor model only; U1 is fixed, RF/RG and any added passives may change.",
+    "AC transfer from each source is measured with that source alone as stimulus; transient includes both tones."
+  ],
+  "provenance": [
+    {
+      "source": "SpiceHarness demo question (docs/prompts/interference-filter-question.md)",
+      "note": "Same LM741 gain-of-3 stage as EEET1413 Lab 4, signal-path variant."
+    }
+  ]
+}

@@ -24,6 +24,8 @@ import json
 import math
 import re
 import stat
+import time
+from bisect import bisect_left
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -39,6 +41,8 @@ from .simulator import MODEL_DIR
 MAX_BYTES = 16 * 1024 * 1024
 MAX_DEPTH = 48
 MAX_ITEMS = 60000
+MAX_DIAGONAL_WIRES = 2000  # diagonal wires are rare in real schematics and the costly case to index
+IMPORT_TIME_BUDGET_S = 10.0  # wall-clock limit for one import (the MCP tool is synchronous)
 _NM = 1_000_000  # coordinates are snapped to integer nanometres before matching
 
 
@@ -80,6 +84,10 @@ class ImportResult:
 # --------------------------------------------------------------------------- s-expressions
 
 
+def _budget_message() -> str:
+    return f"import exceeded its {IMPORT_TIME_BUDGET_S:g} s time budget; simplify the schematic"
+
+
 class _Atom(str):
     """Unquoted token; quoted strings stay plain ``str``."""
 
@@ -94,7 +102,7 @@ def _unescape(text: str) -> str:
     return re.sub(r"\\(.)", lambda m: _ESCAPES.get(m.group(1), m.group(1)), text, flags=re.DOTALL)
 
 
-def parse_sexpr(text: str) -> list:
+def parse_sexpr(text: str, deadline: float | None = None) -> list:
     """Parse one s-expression without recursion or eval; bounded depth and size."""
     if len(text) > MAX_BYTES:
         raise KiCadImportError("schematic exceeds the 16 MiB import limit")
@@ -112,6 +120,8 @@ def parse_sexpr(text: str) -> list:
         items += 1
         if items > 4_000_000:
             raise KiCadImportError("schematic has too many tokens")
+        if deadline is not None and not items & 0xFFFF and time.monotonic() > deadline:
+            raise KiCadImportError(_budget_message())
         if match.group(1):
             if len(stack) >= MAX_DEPTH:
                 raise KiCadImportError(f"schematic nesting is deeper than {MAX_DEPTH}")
@@ -386,28 +396,70 @@ class _UF:
             self.parent[max(ra, rb)] = min(ra, rb)
 
 
+class _Stab:
+    """Static open-interval stabbing index: ids of every ``lo < x < hi`` in output-sensitive time."""
+
+    def __init__(self, items: list[tuple[int, int, int]]):
+        items = sorted(items)
+        self.los = [lo for lo, _, _ in items]
+        self.ids = [i for _, _, i in items]
+        size = 1
+        while size < len(items):
+            size *= 2
+        self.size = size
+        floor = -(1 << 62)
+        self.tree = [floor] * (2 * size)
+        for k, (_, hi, _) in enumerate(items):
+            self.tree[size + k] = hi
+        for k in range(size - 1, 0, -1):
+            self.tree[k] = max(self.tree[2 * k], self.tree[2 * k + 1])
+
+    def stab(self, x: int) -> list[int]:
+        end = bisect_left(self.los, x)  # candidates have lo < x
+        if end == 0 or self.tree[1] <= x:
+            return []
+        found: list[int] = []
+        tree, stack = self.tree, [(1, 0, self.size)]
+        while stack:
+            node, left, right = stack.pop()
+            if left >= end or tree[node] <= x:
+                continue
+            if right - left == 1:
+                found.append(self.ids[left])
+                continue
+            mid = (left + right) // 2
+            stack.append((2 * node, left, mid))
+            stack.append((2 * node + 1, mid, right))
+        return found
+
+
 class _Wires:
-    """Axis-indexed wires for 'does this point lie on a wire's interior' queries."""
+    """Row/column-indexed wires for 'does this point lie on a wire's interior' queries."""
 
     def __init__(self, wires: list[tuple[int, int, int, int]]):
-        self.wires, self.h, self.v, self.d = wires, defaultdict(list), defaultdict(list), []
+        self.wires = wires
+        h, v, d = defaultdict(list), defaultdict(list), []
         for index, (ax, ay, bx, by) in enumerate(wires):
             if ay == by:
-                self.h[ay].append((min(ax, bx), max(ax, bx), index))
+                h[ay].append((min(ax, bx), max(ax, bx), index))
             elif ax == bx:
-                self.v[ax].append((min(ay, by), max(ay, by), index))
+                v[ax].append((min(ay, by), max(ay, by), index))
             else:
-                self.d.append(index)
+                d.append((min(ax, bx), max(ax, bx), index))
+        self.h = {row: _Stab(items) for row, items in h.items()}
+        self.v = {column: _Stab(items) for column, items in v.items()}
+        self.d = _Stab(d) if d else None
 
     def interior(self, point: tuple[int, int]) -> list[int]:
         x, y = point
-        found = [i for lo, hi, i in self.h.get(y, ()) if lo < x < hi]
-        found += [i for lo, hi, i in self.v.get(x, ()) if lo < y < hi]
-        for i in self.d:
-            ax, ay, bx, by = self.wires[i]
-            if ((bx - ax) * (y - ay) - (by - ay) * (x - ax) == 0 and min(ax, bx) < x < max(ax, bx)
-                    and min(ay, by) <= y <= max(ay, by)):
-                found.append(i)
+        found = self.h[y].stab(x) if y in self.h else []
+        if x in self.v:
+            found += self.v[x].stab(y)
+        if self.d is not None:
+            for i in self.d.stab(x):  # x strictly inside the wire's x-range; then the exact test
+                ax, ay, bx, by = self.wires[i]
+                if (bx - ax) * (y - ay) - (by - ay) * (x - ax) == 0 and min(ay, by) <= y <= max(ay, by):
+                    found.append(i)
         return found
 
 
@@ -479,11 +531,16 @@ class _Importer:
         self.original: GeneralCircuitIR | None = None
         self.baseline: dict[str, Any] = {}
         self.merged: dict[str, set[str]] = {}
+        self.deadline = time.monotonic() + IMPORT_TIME_BUDGET_S
 
     # ---- helpers
     def warn(self, message: str) -> None:
         if message not in self.warnings:
             self.warnings.append(message)
+
+    def tick(self) -> None:
+        if time.monotonic() > self.deadline:
+            raise KiCadImportError(_budget_message())
 
     def problem(self, message: str) -> None:
         if message not in self.problems:
@@ -491,11 +548,12 @@ class _Importer:
 
     def run(self) -> ImportResult:
         sha = hashlib.sha256(self.data).hexdigest()
+        self.deadline = time.monotonic() + IMPORT_TIME_BUDGET_S
         try:
             text = self.data.decode("utf-8")
         except UnicodeDecodeError:
             raise KiCadImportError("schematic is not valid UTF-8 text (is this a KiCad 6+ .kicad_sch file?)") from None
-        root = parse_sexpr(text)
+        root = parse_sexpr(text, self.deadline)
         if _head(root) != "kicad_sch":
             raise KiCadImportError("not a KiCad schematic: the top-level expression is not (kicad_sch ...)")
         self._load_original()
@@ -605,6 +663,7 @@ class _Importer:
     # ---- wires, labels
     def _drawing(self, root: list):
         wires, junctions, labels, no_connects = [], [], [], []
+        diagonal = 0
         for node in root:
             head = _head(node)
             if head == "wire":
@@ -612,6 +671,12 @@ class _Importer:
                 if len(pts) != 2:
                     self.problem("a wire does not have exactly two points")
                 elif pts[0] != pts[1]:
+                    if pts[0][0] != pts[1][0] and pts[0][1] != pts[1][1]:
+                        diagonal += 1
+                        if diagonal > MAX_DIAGONAL_WIRES:
+                            raise KiCadImportError(
+                                f"schematic has more than {MAX_DIAGONAL_WIRES} diagonal wires; real schematics use "
+                                "horizontal and vertical wires, so this file is rejected")
                     wires.append((*pts[0], *pts[1]))
             elif head == "junction":
                 x, y, _ = _at(node)
@@ -667,10 +732,14 @@ class _Importer:
         index = _Wires(wires)
         wire_element = {i: wire_ids[i] for i in range(len(wires))}
         pin_points = {point_of[e] for e in range(len(point_of)) if e < n_real or e in power_names}
-        for element, point in zip(junction_ids, junctions, strict=True):
+        for step, (element, point) in enumerate(zip(junction_ids, junctions, strict=True)):
+            if not step & 0xFF:
+                self.tick()
             for w in index.interior(point):
                 uf.union(element, wire_element[w])
-        for element, _, _ in label_ids:
+        for step, (element, _, _) in enumerate(label_ids):
+            if not step & 0xFF:
+                self.tick()
             point = point_of[element]
             if point not in pin_points:  # KiCad attaches a label sitting on a pin to the pin only
                 for w in index.interior(point):
@@ -680,8 +749,12 @@ class _Importer:
         touch = [(point_of[e], f"pin {syms[pin_ids[e][0]].kicad_ref}.{pin_ids[e][1]}") for e in range(n_real)]
         touch += [((ax, ay), "a wire end") for ax, ay, _, _ in wires]
         touch += [((bx, by), "a wire end") for _, _, bx, by in wires]
-        for point, what in touch:
-            if point not in junction_set and index.interior(point) and reported < 8:
+        for step, (point, what) in enumerate(touch):
+            if reported >= 8:
+                break
+            if not step & 0xFF:
+                self.tick()
+            if point not in junction_set and index.interior(point):
                 reported += 1
                 self.warn(f"{what} at ({point[0] / _NM:g}, {point[1] / _NM:g}) touches the middle of a wire "
                           "without a junction; KiCad does not connect it (add a junction if intended)")
@@ -834,6 +907,8 @@ class _Importer:
                         f"fixture {s.ir_ref or s.kicad_ref} is marked {flag}; the frozen bench fixture cannot be removed")
                 else:
                     self.problem(f"{s.label} is marked {flag}; delete the symbol to remove it from the circuit")
+            if s.kind in ("R", "C", "L"):
+                self._check_sim_pins(s)
             if s.props.get("Sim.Enable", "1").strip().lower() in ("0", "false", "no") and s.category != "Bench fixture":
                 self.problem(f"{s.label} has Sim.Enable=0; delete the symbol to remove it from the circuit")
         # fixtures
@@ -931,6 +1006,7 @@ class _Importer:
                 part["model"] = self._model(s, base.model if base else None)
                 if part["model"] is None:
                     continue
+                self._check_sim_pins(s, part["model"])
             else:
                 part["value"] = self._passive_value(s, s.kind, base.value if base else None)
                 if part["value"] is None:
@@ -1103,6 +1179,69 @@ class _Importer:
         if library and not re.fullmatch(r"(?:.*/)?(?:model_\d+|[A-Za-z0-9_]+)\.lib", library):
             self.warn(f"{ref}: Sim.Library {library!r} is ignored; models come only from the trusted catalog")
         return key
+
+    # ---- Sim.Pins
+    def _expected_sim_pins(self, kind: str, model: str) -> dict[str, str] | None:
+        """The ``Sim.Pins`` mapping kicad_export writes for this catalog model (None: model pin names unknown)."""
+        from .kicad_export import _model_properties, model_pin_names
+
+        entry = self.catalog[model]
+        binding = {**entry, "library": "model.lib"}
+        if kind == "OPAMP":  # subcircuit pin names come from the original, checksum-pinned model file
+            try:
+                text = (MODEL_DIR / str(entry["path"])).read_text(errors="strict")
+                binding["model_pins"] = model_pin_names(text, entry["spice_name"])
+            except (OSError, ValueError, KeyError):
+                return None
+        try:
+            props, _ = _model_properties({"kind": kind, "model": model}, {model: binding})
+        except (ValueError, KeyError):
+            return None
+        text = props.get("Sim.Pins")
+        return dict(token.split("=", 1) for token in text.split()) if text else None
+
+    def _check_sim_pins(self, s: _Sym, model: str | None = None) -> None:
+        """KiCad's simulator wires by ``Sim.Pins`` but SpiceHarness by drawn pin number: they must agree."""
+        if "Sim.Pins" not in s.props:
+            return
+        ref, count = s.ir_ref or s.kicad_ref, _PIN_COUNT[s.kind]
+        text = s.props["Sim.Pins"]
+        found: dict[str, str] = {}
+        faults: list[str] = []
+        for token in text.split():
+            number, equals, name = token.partition("=")
+            if not equals or not name or not number.isdigit():
+                faults.append(f"cannot read entry {token!r}")
+            elif number in found:
+                faults.append(f"pin {number} is mapped twice")
+            elif not 1 <= int(number) <= count:
+                faults.append(f"unknown pin {number} ({s.kind} has pins 1 to {count})")
+            else:
+                found[number] = name
+        missing = [str(i) for i in range(1, count + 1) if str(i) not in found]
+        if missing:
+            faults.append(f"missing entries for pin {', '.join(missing)}")
+        if len(set(found.values())) != len(found):
+            faults.append("a model pin is used by two symbol pins")
+        expected = self._expected_sim_pins(s.kind, model) if model else None
+        shown = lambda mapping: " ".join(f"{k}={v}" for k, v in sorted(mapping.items()))
+        if not faults and s.kind in _ACTIVE and expected is not None and found != expected:
+            faults.append(f"it differs from the mapping for model {model}")
+        elif not faults and s.kind in ("R", "C", "L") and set(found.values()) not in ({"1", "2"}, {"+", "-"}):
+            faults.append("a two-terminal part maps pins 1 and 2 to 1/2 or +/- (either order)")
+        if faults:
+            message = (f"{ref}: Sim.Pins {text!r} is inconsistent with the drawn pins: {'; '.join(faults)}. "
+                       "SpiceHarness wires by drawn pin number but KiCad's simulator uses Sim.Pins, so the same "
+                       "file would simulate a different circuit. Restore the exported mapping")
+            if expected is not None:
+                message += f" ({shown(expected)}; found {shown(found) or text!r})"
+            if s.category == "Bench fixture":
+                self.fixture_errors.append(message)
+            else:
+                self.problem(message)
+        elif s.kind in _ACTIVE and expected is None and model:
+            self.warn(f"{ref}: the original {model} model file is not available, so Sim.Pins {text!r} was only "
+                      "checked for completeness, not for pin order")
 
     # ---- fixture check
     def _check_fixtures(self, fixtures: list[_Sym], by_sym: dict[int, list[str]]) -> None:
