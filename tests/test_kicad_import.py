@@ -22,8 +22,8 @@ from spiceharness.kicad_export import _POSITIONS, _TWO_PINS
 from spiceharness.kicad_import import (
     KiCadImportError,
     import_kicad_schematic,
-    parse_si_value,
     parse_sexpr,
+    parse_si_value,
 )
 from spiceharness.spice_bundle import export_spice_bundle
 from spiceharness.storage import RunStore
@@ -141,7 +141,7 @@ def _sheet_point(lib: tuple[float, float], rotation: int, mirror: str | None, or
 
 def _orient(lines: list[str], ir_ref: str, kind: str, rotation: int, mirror: str | None) -> None:
     """Rotate/mirror a symbol and re-route its stub wires so the labels follow the moved pins."""
-    start, end = _block(lines, ir_ref)
+    start, _ = _block(lines, ir_ref)
     match = re.search(r"\(at ([\d.]+) ([\d.]+) 0\)", lines[start])
     origin = (float(match[1]), float(match[2]))
     lines[start] = lines[start].replace(match[0], f"(at {match[1]} {match[2]} {rotation})"
@@ -179,17 +179,16 @@ def _add_stock(lines: list[str], lib_id: str, ref: str, value: str, x: float, y:
     definition = _DEVICE_R.replace('"Device:R"', f'"{lib_id}"').replace('"R_0_1"', f'"{lib_id.split(":")[1]}_0_1"') \
         .replace('"R_1_1"', f'"{lib_id.split(":")[1]}_1_1"')
     if not any(f'(symbol "{lib_id}"' in line for line in lines):
-        lines[0] = lines[0]  # keep header
         index = next(i for i, line in enumerate(lines) if line.startswith("(lib_symbols"))
         lines[index] = lines[index].replace("(lib_symbols ", "(lib_symbols " + definition + "\n", 1)
-    block = [f'(symbol (lib_id "{lib_id}") (at {x} {y} 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) '
-             f'(dnp no) (uuid 00000000-0000-4000-8002-{abs(hash(ref)) % 10**12:012d})',
+    block = [(f'(symbol (lib_id "{lib_id}") (at {x} {y} 0) (unit 1) (exclude_from_sim no) (in_bom yes) (on_board yes) '
+              f'(dnp no) (uuid 00000000-0000-4000-8002-{abs(hash(ref)) % 10**12:012d})'),
              f'(property "Reference" "{ref}" (at {x + 3} {y} 90) (effects (font (size 1.27 1.27))))',
              f'(property "Value" "{value}" (at {x - 3} {y} 90) (effects (font (size 1.27 1.27))))',
              f'(pin "1" (uuid 00000000-0000-4000-8003-{abs(hash(ref)) % 10**12:012d}))',
              f'(pin "2" (uuid 00000000-0000-4000-8004-{abs(hash(ref)) % 10**12:012d}))',
-             f'(instances (project "candidate" (path "/00000000-0000-4000-8000-000000000000" (reference "{ref}") '
-             '(unit 1)))))']
+             (f'(instances (project "candidate" (path "/00000000-0000-4000-8000-000000000000" (reference "{ref}") '
+              '(unit 1)))))')]
     for number, (px, py, net) in enumerate(((x, y - 3.81, nets[0]), (x, y + 3.81, nets[1])), 1):
         sign = -1 if number == 1 else 1
         block.append(f"(wire (pts (xy {px} {py}) (xy {px} {py + sign * 5.08})) (stroke (width 0) (type default)) "
@@ -210,7 +209,7 @@ def _rc_import(folder: Path, spec: dict):
 
 def test_sexpr_parser_is_bounded_and_strict():
     tree = parse_sexpr('(a "b \\"q\\" \\\\" (c 1 2) "")')
-    assert tree[1] == 'b "q" \\' and tree[3] == [tree[3][0], "1", "2"] and tree[4] == ""
+    assert tree[1] == 'b "q" \\' and tree[2] == ["c", "1", "2"] and tree[3] == ""
     for bad in ("(a", "a)", '(a "unterminated)', "(a) (b)", "", "(" * 100 + ")" * 100):
         with pytest.raises(KiCadImportError):
             parse_sexpr(bad)
@@ -267,7 +266,7 @@ def test_round_trip_without_circuit_json_keeps_ir_up_to_order(lab4):
     shutil.copy(folder / "candidate.kicad_sch", alone / "candidate.kicad_sch")
     result = import_kicad_schematic(alone / "candidate.kicad_sch", spec=lab4["spec"])
     assert result.ok and result.changes == [] and not result.original_found
-    key = lambda part: part["ref"]  # noqa: E731
+    key = lambda part: part["ref"]
     assert sorted(result.circuit["components"], key=key) == sorted(original["components"], key=key)
     assert sorted(map(sorted, result.circuit["connections"])) == sorted(map(sorted, original["connections"]))
 
@@ -486,15 +485,17 @@ def test_shorted_source_is_rejected_by_the_existing_validator(rc):
     assert not result.ok and "short-circuit" in result.validation_error
 
 
-def test_wiring_across_pins_that_joins_fixture_nets_is_reported(rc):
+def test_wiring_that_joins_fixture_nets_is_reported(rc):
     folder, spec, _ = rc
     lines = _lines(folder)
-    # Move C1's stub label to ground the "out" node through the load: joins out with 0 via wiring.
-    _relabel(lines, "C1", 1, "0")
-    _relabel(lines, "R1", 2, "0")
+    label = _stub_lines(lines, "C1_intrinsic", 1)[-1]
+    x, y = (float(v) for v in re.search(r"\(label \"out\" \(at ([\d.]+) ([\d.]+)", lines[label]).groups())
+    lines[label + 1:label + 1] = [_wire(x, y, x + 5, y),
+                                  f'(label "in" (at {x + 5} {y} 0) (effects (font (size 1 1))))']
     _save(folder, lines)
-    result = _rc_import(folder, spec)
-    assert result.fixture_ok is False or result.validation_error
+    with pytest.raises(KiCadImportError, match="distinct terminals") as info:  # R1 now sits across a short
+        _rc_import(folder, spec)
+    assert "were joined with it" in str(info.value) and "frozen bench requires" in str(info.value)
 
 
 # ----------------------------------------------------------------------------- connectivity rules
@@ -528,37 +529,60 @@ def _wire(x1, y1, x2, y2) -> str:
     return f"(wire (pts (xy {x1} {y1}) (xy {x2} {y2})) (stroke (width 0) (type default)))"
 
 
+_LABELS = ['(label "L" (at 34.76 50 0))', '(label "M" (at 85.24 50 0))']
+_DOWN = [_wire(50, 50, 50, 60), _wire(70, 50, 70, 60)]
+_BELOW = _wire(40, 60, 80, 60)
+_CROSS = [_wire(50, 50, 50, 70), _wire(70, 50, 70, 70)]
+
+
 @pytest.mark.parametrize("extra,joined", [
-    ([_wire(50, 50, 60, 50), _wire(60, 50, 70, 50)], True),                          # end to end
-    ([_wire(50, 50, 70, 50), '(junction (at 60 50))'], True),
-    ([_wire(50, 50, 60, 50)], False),                                                  # does not reach
-    ([_wire(50, 50, 70, 50), _wire(60, 40, 60, 60)], True),                            # crossing wires
-    ([_wire(50, 40, 50, 60), _wire(50, 50, 70, 50), _wire(70, 40, 70, 60)], True),
+    ([_wire(50, 50, 60, 50), _wire(60, 50, 70, 50)], True),                       # end to end
+    ([_wire(50, 50, 60, 50)], False),                                              # does not reach
+    ([*_DOWN, _BELOW], False),                                                     # T without junction (KiCad 10)
+    ([*_DOWN, _BELOW, "(junction (at 50 60))", "(junction (at 70 60))"], True),    # T with junctions
+    ([*_CROSS, _BELOW], False),                                                    # crossing without junction
+    ([*_CROSS, _BELOW, "(junction (at 50 60))", "(junction (at 70 60))"], True),   # crossing with junctions
+    ([_wire(50, 50, 60, 50), _wire(60, 50, 60, 50), _wire(70, 50, 60, 50)], True),  # zero-length wire is inert
+    (['(label "X" (at 50 50 0))', '(label "X" (at 70 50 0))'], True),              # labels on pins, same text
+    (['(label "X" (at 50 50 0))', '(label "Y" (at 70 50 0))'], False),
+    (['(global_label "X" (shape input) (at 50 50 0))', '(label "X" (at 70 50 0))'], True),
 ])
-def test_wire_joining_rules(extra, joined):
-    path = Path(os.environ.get("TMPDIR", "/tmp")) / f"join-{abs(hash(tuple(extra)))}.kicad_sch"
-    path.write_text(_two_resistors(extra))
+def test_wire_joining_rules(tmp_path, extra, joined):
+    path = tmp_path / "j.kicad_sch"
+    path.write_text(_two_resistors([*_LABELS, *extra]))
     try:
-        with pytest.raises(KiCadImportError) as info:
-            import_kicad_schematic(path)  # four loose pins: names are generated, then the two outer pins dangle
-        assert "not connected to anything" in str(info.value)
-    finally:
-        path.unlink()
-    assert joined in (True, False)
+        result = import_kicad_schematic(path)
+    except KiCadImportError as exc:
+        assert not joined and "not connected to anything" in str(exc)
+        return
+    assert (result.pin_nets[("R1", "2")] == result.pin_nets[("R2", "1")]) is joined
 
 
-def test_t_junction_needs_a_junction_like_kicad(tmp_path):
-    """Wire end on another wire's middle connects only through a junction; the importer warns about the near miss."""
-    def nets(extra):
-        path = tmp_path / "t.kicad_sch"
-        path.write_text(_two_resistors([_wire(50, 50, 70, 50), *extra,
-                                        '(label "A" (at 40 50 0))', '(label "B" (at 80 50 0))',
-                                        _wire(60, 50, 60, 60), _wire(60, 60, 60, 70), '(label "T" (at 60 70 0))']))
-        return import_kicad_schematic(path)
+def test_missed_t_junction_is_warned_about(tmp_path):
+    path = tmp_path / "j.kicad_sch"
+    path.write_text(_two_resistors([*_LABELS, *_DOWN, _BELOW, '(label "A" (at 50 50 0))', '(label "A" (at 70 50 0))']))
+    result = import_kicad_schematic(path)
+    assert any("touches the middle of a wire without a junction" in w for w in result.warnings)
 
-    # pins sit at 50 and 70 (R1 pin2 / R2 pin1): the long wire joins them directly.
-    base = nets([])
-    assert base.pin_nets[("R1", "2")] == base.pin_nets[("R2", "1")]
+
+def test_power_symbol_and_ground_aliases_are_node_zero(tmp_path):
+    power = ('(symbol "power:GND" (power global) (pin_names (offset 0) (hide yes))\n'
+             '(property "Value" "GND" (at 0 0 0))\n(symbol "GND_1_1" (pin power_in line (at 0 0 270) (length 0) '
+             '(name "~") (number "1"))))')
+    text = _two_resistors(['(label "L" (at 34.76 50 0))', '(label "M" (at 85.24 50 0))', '(label "Gnd" (at 70 50 0))',
+                           ('(symbol (lib_id "power:GND") (at 50 50 0) (unit 1) (uuid 00000000-0000-4000-8000-000000000099)\n'
+                            '(property "Reference" "#PWR01" (at 0 0 0)) (property "Value" "GND" (at 0 0 0)))')])
+    path = tmp_path / "p.kicad_sch"
+    path.write_text(text.replace("(lib_symbols ", "(lib_symbols " + power + "\n", 1))
+    result = import_kicad_schematic(path)
+    assert result.pin_nets[("R1", "2")] == result.pin_nets[("R2", "1")] == "0"
+
+
+def test_labels_differing_only_in_case_are_an_error(tmp_path):
+    path = tmp_path / "c.kicad_sch"
+    path.write_text(_two_resistors([*_LABELS, '(label "Out" (at 50 50 0))', '(label "out" (at 70 50 0))']))
+    with pytest.raises(KiCadImportError, match="differ only in case"):
+        import_kicad_schematic(path)
 
 
 # ----------------------------------------------------------------------------- rescore CLI and MCP
@@ -567,7 +591,6 @@ def test_t_junction_needs_a_junction_like_kicad(tmp_path):
 @real_spice
 def test_rescore_cli_end_to_end_with_real_ngspice(tmp_path):
     workspace = tmp_path / "ws"
-    run = _compare(workspace, RC, RC / "spec.json") if False else None  # reference.json is not a candidate dir
     manager = ExperimentManager(workspace)
     spec = ExperimentSpec.model_validate_json((RC / "spec.json").read_text())
     started = manager.start_experiment(spec, execution_mode="direct")
@@ -613,7 +636,7 @@ def test_rescore_cli_end_to_end_with_real_ngspice(tmp_path):
 
 
 def test_rescore_rejects_edited_fixture_without_creating_a_run(tmp_path, rc):
-    folder, spec, circuit = rc
+    folder, spec, _ = rc
     workspace = tmp_path / "ws"
     manager = ExperimentManager(workspace)
     run = manager.start_experiment(ExperimentSpec.model_validate(spec), execution_mode="direct")
@@ -669,7 +692,9 @@ async def test_mcp_import_tool_is_read_only_and_path_safe(tmp_path):
             assert not reply.is_error, reply
             data = reply.structured_content
             assert data["fixture_ok"] is True and data["circuit"]["components"][0]["value"] == 2200
-            assert data["changes"][0]["text"] == "R1.value: 1 kΩ -> 2.2 kΩ" and len(data["sha256"]) == 64
+            assert len(data["sha256"]) == 64
+            if good != inside:  # only the export folder carries circuit.json for the change list
+                assert data["changes"][0]["text"] == "R1.value: 1 kΩ -> 2.2 kΩ" and data["original_circuit_found"]
         for bad in (stranger, workspace / "link.kicad_sch", workspace / ".." / "stranger.kicad_sch",
                     workspace / "missing.kicad_sch", candidate / "circuit.json"):
             assert (await client.call_tool("import_kicad_schematic", {"run_id": run_id, "path": str(bad)})).is_error
@@ -692,7 +717,7 @@ def _kicad_partition(path: Path):
         (Path(temporary) / "x.kicad_pro").write_text("{}")
         out = Path(temporary) / "x.net"
         done = subprocess.run([_KICAD, "sch", "export", "netlist", "--format", "kicadsexpr", "-o", str(out), str(sch)],
-                              capture_output=True, text=True, timeout=60)
+                              check=False, capture_output=True, text=True, timeout=60)
         assert done.returncode == 0, done.stdout + done.stderr
         nets: dict[str, set] = {}
         stack = [parse_sexpr(out.read_text())]

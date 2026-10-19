@@ -979,7 +979,8 @@ class _Importer:
             circuit = GeneralCircuitIR.model_validate(raw)
         except ValidationError as exc:
             detail = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:6])
-            raise KiCadImportError(f"- imported circuit is not valid Circuit IR: {detail}") from exc
+            extra = "".join(f"\n- {item}" for item in self.fixture_errors)
+            raise KiCadImportError(f"- imported circuit is not valid Circuit IR: {detail}{extra}") from exc
         validation = None
         if self.spec is not None and fixture_ok:
             try:

@@ -128,6 +128,12 @@ Open `candidate.kicad_sch` in KiCad Schematic Editor. The native drawing include
 
 Saved scores apply only to the original evaluated circuit. After manually editing a KiCad schematic, submit validated Circuit IR as a new candidate, re-evaluate it under the frozen specification, and require fresh verification before claiming it passes; the old score does not establish validity of the edited circuit. Vendor models are copied for local use with source/checksum provenance. The export does not grant permission to redistribute those files.
 
+**Edited a schematic in KiCad?** Re-score it as a new candidate under the same frozen spec:
+`spice experiment rescore-kicad RUN path/to/candidate.kicad_sch` (MCP: `import_kicad_schematic`). The importer rebuilds
+the Circuit IR from the drawn connectivity, rejects any change to the frozen bench, evaluates the edit in a new run and
+freshly verifies it; the original run and score are never touched. Supported edits, the `M`/`Meg` value rule and
+rejections are in [docs/kicad-import.md](docs/kicad-import.md).
+
 ## Reference knowledge
 
 The starter knowledge base contains original engineering recipe notes with citations to [Lessons in Electric Circuits](https://www.allaboutcircuits.com/textbook/). It does not claim to contain or have trained on commercial textbooks. Retrieval supplies context; SPICE establishes measured feasibility.
