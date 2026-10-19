@@ -1,0 +1,14 @@
+{
+  "topology": "passive_lowpass",
+  "gain": 1,
+  "gain_tolerance": 0.1,
+  "cutoff_hz": 1000,
+  "cutoff_tolerance": 0.1,
+  "supply_positive_v": 5,
+  "supply_negative_v": 0,
+  "input_amplitude_v": 0.1,
+  "input_frequency_hz": 10,
+  "load_ohm": 100000,
+  "source_resistance_ohm": 50,
+  "max_thd": 0.03
+}

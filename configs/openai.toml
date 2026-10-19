@@ -1,0 +1,25 @@
+[roles.designer]
+provider = "openai"
+model = "gpt-6.1-sol"
+reasoning_effort = "medium"
+max_output_tokens = 1800
+
+[roles.scorer]
+provider = "openai"
+model = "gpt-6.1-sol"
+reasoning_effort = "medium"
+max_output_tokens = 1800
+
+[roles.expert]
+provider = "openai"
+model = "gpt-6-astra"
+reasoning_effort = "high"
+max_output_tokens = 2400
+
+[limits]
+max_seconds = 180
+max_candidates = 20
+max_expert_calls = 1
+max_api_calls = 24
+api_timeout_s = 30
+structured_retries = 2

@@ -1,0 +1,599 @@
+{
+  "sources": [
+    {
+      "ref": "signal",
+      "kind": "V",
+      "nodes": [
+        "input",
+        "0"
+      ],
+      "dc": 2.0,
+      "waveform": "sine",
+      "amplitude": 1.0,
+      "frequency_hz": 1000.0,
+      "delay_s": 0.0,
+      "rise_s": 1e-06,
+      "fall_s": 1e-06,
+      "width_s": 0.0005,
+      "period_s": 0.001
+    },
+    {
+      "ref": "positive",
+      "kind": "V",
+      "nodes": [
+        "psource",
+        "0"
+      ],
+      "dc": 12.0,
+      "waveform": "dc",
+      "amplitude": 0.0,
+      "frequency_hz": 1000.0,
+      "delay_s": 0.0,
+      "rise_s": 1e-06,
+      "fall_s": 1e-06,
+      "width_s": 0.0005,
+      "period_s": 0.001
+    },
+    {
+      "ref": "negative",
+      "kind": "V",
+      "nodes": [
+        "nsource",
+        "0"
+      ],
+      "dc": -12.0,
+      "waveform": "dc",
+      "amplitude": 0.0,
+      "frequency_hz": 1000.0,
+      "delay_s": 0.0,
+      "rise_s": 1e-06,
+      "fall_s": 1e-06,
+      "width_s": 0.0005,
+      "period_s": 0.001
+    }
+  ],
+  "loads": [
+    {
+      "ref": "RSOURCEP",
+      "kind": "R",
+      "nodes": [
+        "psource",
+        "pfeed"
+      ],
+      "value": 1.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RSOURCEN",
+      "kind": "R",
+      "nodes": [
+        "nsource",
+        "nfeed"
+      ],
+      "value": 1.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RLOAD",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": 10000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    }
+  ],
+  "probes": [
+    {
+      "name": "out",
+      "positive": "out",
+      "negative": "0"
+    },
+    {
+      "name": "prail",
+      "positive": "vcc",
+      "negative": "0"
+    },
+    {
+      "name": "nrail",
+      "positive": "vee",
+      "negative": "0"
+    },
+    {
+      "name": "pdrop",
+      "positive": "pfeed",
+      "negative": "vcc"
+    },
+    {
+      "name": "ndrop",
+      "positive": "vee",
+      "negative": "nfeed"
+    },
+    {
+      "name": "phead",
+      "positive": "vcc",
+      "negative": "out"
+    },
+    {
+      "name": "nhead",
+      "positive": "out",
+      "negative": "vee"
+    }
+  ],
+  "sweep": {
+    "start_hz": 10.0,
+    "stop_hz": 100000.0,
+    "points_per_decade": 200
+  },
+  "transient": {
+    "stop_s": 0.02,
+    "step_s": 1e-06,
+    "start_s": 0.01
+  },
+  "measurements": [
+    {
+      "name": "signal_gain_1khz",
+      "operator": "ac_magnitude",
+      "probe": "out",
+      "source": "signal",
+      "frequency_hz": 1000.0,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "pstopband_gain",
+      "operator": "ac_max",
+      "probe": "prail",
+      "source": "positive",
+      "frequency_hz": null,
+      "band_start_hz": 1000.0,
+      "band_stop_hz": 100000.0,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "ppeak_gain",
+      "operator": "ac_max",
+      "probe": "prail",
+      "source": "positive",
+      "frequency_hz": null,
+      "band_start_hz": 10.0,
+      "band_stop_hz": 100000.0,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "pdrop_v",
+      "operator": "op_voltage",
+      "probe": "pdrop",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "psource_current_a",
+      "operator": "op_current",
+      "probe": null,
+      "source": "positive",
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "prail_noise_rms_v",
+      "operator": "integrated_noise_rms",
+      "probe": "prail",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "pheadroom_v",
+      "operator": "transient_min",
+      "probe": "phead",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "nstopband_gain",
+      "operator": "ac_max",
+      "probe": "nrail",
+      "source": "negative",
+      "frequency_hz": null,
+      "band_start_hz": 1000.0,
+      "band_stop_hz": 100000.0,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "npeak_gain",
+      "operator": "ac_max",
+      "probe": "nrail",
+      "source": "negative",
+      "frequency_hz": null,
+      "band_start_hz": 10.0,
+      "band_stop_hz": 100000.0,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "ndrop_v",
+      "operator": "op_voltage",
+      "probe": "ndrop",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "nsource_current_a",
+      "operator": "op_current",
+      "probe": null,
+      "source": "negative",
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "nrail_noise_rms_v",
+      "operator": "integrated_noise_rms",
+      "probe": "nrail",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "nheadroom_v",
+      "operator": "transient_min",
+      "probe": "nhead",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_supply_noise_rms_v",
+      "operator": "integrated_noise_rms",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_dc_v",
+      "operator": "op_voltage",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_min_v",
+      "operator": "transient_min",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_max_v",
+      "operator": "transient_max",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_mean_v",
+      "operator": "transient_mean",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "output_fundamental_vpeak",
+      "operator": "transient_fundamental",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": 1000.0,
+      "harmonics": 10
+    },
+    {
+      "name": "output_thd",
+      "operator": "transient_thd",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": 1000.0,
+      "harmonics": 10
+    }
+  ],
+  "requirements": [
+    {
+      "metric": "signal_gain_1khz",
+      "minimum": 2.85,
+      "maximum": 3.15
+    },
+    {
+      "metric": "pstopband_gain",
+      "minimum": null,
+      "maximum": 0.1
+    },
+    {
+      "metric": "ppeak_gain",
+      "minimum": null,
+      "maximum": 1.4125375446227544
+    },
+    {
+      "metric": "pdrop_v",
+      "minimum": 0.0,
+      "maximum": 0.1
+    },
+    {
+      "metric": "pheadroom_v",
+      "minimum": 1.0,
+      "maximum": null
+    },
+    {
+      "metric": "nstopband_gain",
+      "minimum": null,
+      "maximum": 0.1
+    },
+    {
+      "metric": "npeak_gain",
+      "minimum": null,
+      "maximum": 1.4125375446227544
+    },
+    {
+      "metric": "ndrop_v",
+      "minimum": 0.0,
+      "maximum": 0.1
+    },
+    {
+      "metric": "nheadroom_v",
+      "minimum": 1.0,
+      "maximum": null
+    },
+    {
+      "metric": "output_min_v",
+      "minimum": 2.8,
+      "maximum": 3.2
+    },
+    {
+      "metric": "output_max_v",
+      "minimum": 8.8,
+      "maximum": 9.2
+    },
+    {
+      "metric": "output_mean_v",
+      "minimum": 5.8,
+      "maximum": 6.2
+    },
+    {
+      "metric": "output_fundamental_vpeak",
+      "minimum": 2.85,
+      "maximum": 3.15
+    },
+    {
+      "metric": "output_thd",
+      "minimum": null,
+      "maximum": 0.01
+    }
+  ],
+  "baseline": {
+    "name": "direct",
+    "components": [
+      {
+        "ref": "U1",
+        "kind": "OPAMP",
+        "nodes": [
+          "input",
+          "inv",
+          "vcc",
+          "vee",
+          "out"
+        ],
+        "value": null,
+        "model": "LM741",
+        "package": "U1",
+        "role": "signal",
+        "parameters": {},
+        "series_resistance_ohm": 0.0
+      },
+      {
+        "ref": "RF",
+        "kind": "R",
+        "nodes": [
+          "out",
+          "inv"
+        ],
+        "value": 2000.0,
+        "model": null,
+        "package": null,
+        "role": "signal",
+        "parameters": {},
+        "series_resistance_ohm": 0.0
+      },
+      {
+        "ref": "RG",
+        "kind": "R",
+        "nodes": [
+          "inv",
+          "0"
+        ],
+        "value": 1000.0,
+        "model": null,
+        "package": null,
+        "role": "signal",
+        "parameters": {},
+        "series_resistance_ohm": 0.0
+      }
+    ],
+    "connections": [
+      [
+        "pfeed",
+        "vcc"
+      ],
+      [
+        "nfeed",
+        "vee"
+      ]
+    ]
+  },
+  "protected_refs": [
+    "U1",
+    "RF",
+    "RG"
+  ],
+  "redesign_ports": [
+    "pfeed",
+    "nfeed",
+    "vcc",
+    "vee",
+    "0"
+  ],
+  "allowed_models": [
+    "LM741"
+  ],
+  "noise_sources": [
+    {
+      "source": "positive",
+      "density": 1.0001000100010002e-09,
+      "start_hz": 10.0,
+      "stop_hz": 100000.0,
+      "correlation": "independent"
+    },
+    {
+      "source": "negative",
+      "density": 1.0001000100010002e-09,
+      "start_hz": 10.0,
+      "stop_hz": 100000.0,
+      "correlation": "independent"
+    }
+  ],
+  "temperature_c": 27.0,
+  "provenance": [
+    {
+      "source": "EEET1413_Lab4NOTE (1).docx",
+      "page": "Task 1 Q2 Figure 1; Task 2 Figure 2",
+      "note": "User-supplied source SHA2565839a01e18f91c8d52189aab6039d2d566fb625496bfe24c79a6c246acccd79e. Original notes and images are not distributed."
+    },
+    {
+      "source": "https://www.ti.com/lit/ds/symlink/lm741.pdf",
+      "page": "4\u20135,9\u201311",
+      "note": "LM741 recommended operating conditions, gain application and supply/layout guidance; not validation of AC PSRR."
+    },
+    {
+      "source": "https://www.ti.com/lit/pdf/snva538",
+      "page": "2\u20134",
+      "note": "LC filtering and damping guidance."
+    }
+  ],
+  "assumptions": [
+    "Figure host reproduced with LM741 substituted for the unspecified741 identity; RF2k\u03a9/RG1k\u03a9,2V DC+1Vpeak1kHz signal and\u00b112V rails. No additional100nF bypass capacitors are inserted in the literal baseline or originalT.",
+    "Source impedance1\u03a9 per rail,ideal input source,10k\u03a9 output load,27\u00b0C; missing from figure and selected explicitly. Capacitor ESR0.1\u03a9; originalT inductor DCR1\u03a9 each; alternatives0.05\u03a9 each. These are assumptions,not sourced part values.",
+    "OriginalT: first series inductor7.95mH,shunt6.4nF,second series inductor7.95\u00b5H on each rail. Values retain the asymmetric drawing.",
+    "External rail noises independent,flat one-sided PSD=(0.01V RMS)^2/(100000\u221210)Hz,10Hz\u2013100kHz. Noise is integrated AC transfer,not a random transient waveform.",
+    "Multisim noise ratio100 is ambiguous between amplitude and power scaling. Its figure10M\u03a9/27\u00b0C/10GHz thermal reference is recorded separately; neither ratio interpretation nor a10GHz lumped741 simulation is claimed here.",
+    "All required checks dominate package count; winner is the fewest physical packages among passing submitted candidates. Loss/attenuation are reported additionally,not substituted for deterministic ranking. No component-area,price,startup/inrush,tolerance or exhaustive stress constraints.",
+    "Rail-noise-to-output coupling is an unvalidated LM741 macromodel prediction. No physical PSRR,device-noise or Multisim equivalence claim; practical PCB bypassing/layout requires separate design validation."
+  ],
+  "numerical_policy": "general-experiment-v1;reltol=1e-4;gear;log-frequency-interpolation;sampled-extrema;independent-PSD"
+}

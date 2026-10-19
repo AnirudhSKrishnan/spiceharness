@@ -1,0 +1,107 @@
+{
+  "name": "rc_22ohm_100uf",
+  "components": [
+    {
+      "ref": "U1",
+      "kind": "OPAMP",
+      "nodes": [
+        "input",
+        "inv",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "value": null,
+      "model": "LM741",
+      "package": "U1",
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RF",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 2000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RG",
+      "kind": "R",
+      "nodes": [
+        "inv",
+        "0"
+      ],
+      "value": 1000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "PR1",
+      "kind": "R",
+      "nodes": [
+        "pfeed",
+        "vcc"
+      ],
+      "value": 22.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "PC1",
+      "kind": "C",
+      "nodes": [
+        "vcc",
+        "0"
+      ],
+      "value": 0.0001,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.1
+    },
+    {
+      "ref": "NR1",
+      "kind": "R",
+      "nodes": [
+        "nfeed",
+        "vee"
+      ],
+      "value": 22.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "NC1",
+      "kind": "C",
+      "nodes": [
+        "vee",
+        "0"
+      ],
+      "value": 0.0001,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.1
+    }
+  ],
+  "connections": []
+}

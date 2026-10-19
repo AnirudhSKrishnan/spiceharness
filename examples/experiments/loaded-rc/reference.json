@@ -1,0 +1,34 @@
+{
+  "name": "loaded_rc_reference",
+  "components": [
+    {
+      "ref": "R1",
+      "kind": "R",
+      "nodes": [
+        "in",
+        "out"
+      ],
+      "value": 1000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "C1",
+      "kind": "C",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": 1e-7,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.2
+    }
+  ],
+  "connections": []
+}

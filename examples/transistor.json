@@ -1,0 +1,14 @@
+{
+  "topology": "common_emitter",
+  "gain": -3,
+  "gain_tolerance": 0.2,
+  "supply_positive_v": 12,
+  "supply_negative_v": 0,
+  "input_amplitude_v": 0.01,
+  "input_frequency_hz": 1000,
+  "load_ohm": 100000,
+  "source_resistance_ohm": 50,
+  "max_thd": 0.03,
+  "max_supply_current_a": 0.005,
+  "transistor_model": "2N3904"
+}

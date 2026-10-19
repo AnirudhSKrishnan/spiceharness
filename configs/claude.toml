@@ -1,0 +1,24 @@
+# Models must be available to your Anthropic account; access is checked before runs.
+# No OpenAI credential is required by this configuration.
+[roles.designer]
+provider = "anthropic"
+model = "claude-sonnet-5-5"
+reasoning_effort = "medium"
+
+[roles.scorer]
+provider = "anthropic"
+model = "claude-sonnet-5-5"
+reasoning_effort = "medium"
+
+[roles.expert]
+provider = "anthropic"
+model = "claude-opus-5-5"
+reasoning_effort = "high"
+
+[limits]
+max_seconds = 180
+max_candidates = 20
+max_expert_calls = 1
+max_api_calls = 24
+api_timeout_s = 30
+structured_retries = 2

@@ -1,0 +1,132 @@
+{
+  "LM358": {
+    "path": "LM358.lib",
+    "spice_name": "LMX58_LM2904",
+    "kind": "OPAMP",
+    "pins": [
+      "noninverting",
+      "inverting",
+      "positive_supply",
+      "negative_supply",
+      "output"
+    ],
+    "channels": 2,
+    "source_url": "https://www.ti.com/lit/zip/snom268",
+    "sha256": "467a3e573420d1f5a21fab57b76be0e13073e854f609a73459a191958e314726",
+    "version": "Rev B, 2021-06-29, archive snom268C",
+    "archive_entry": "lmx58_lm2904.lib",
+    "archive_sha256": "d3b7b2089c35518ab9f0f05290cf7856297e2680a40b0a731640923203a6dcc2",
+    "min_supply_span_v": 3,
+    "max_supply_span_v": 30,
+    "min_temperature_c": 0,
+    "max_temperature_c": 70,
+    "envelope_source": "https://www.ti.com/product/LM358",
+    "envelope_note": "Manufacturer recommended supply and operating-temperature range for LM358."
+  },
+  "OPA1641": {
+    "path": "OPA1641.lib",
+    "spice_name": "OPA164x",
+    "kind": "OPAMP",
+    "pins": [
+      "noninverting",
+      "inverting",
+      "positive_supply",
+      "negative_supply",
+      "output"
+    ],
+    "channels": 1,
+    "source_url": "https://www.ti.com/lit/zip/sbom627",
+    "sha256": "54b8d329c993d840c3967b111fca446cd00f2a90d29a6db84c6261e1b71d6347",
+    "version": "Final 1.3, 2022-06-09",
+    "archive_entry": "OPA164x.LIB",
+    "archive_sha256": "a907c4baf018b63577dbec571f4da1328c25df82b0e132745ac622772f8a7cf4",
+    "min_supply_span_v": 5,
+    "max_supply_span_v": 36,
+    "min_temperature_c": -40,
+    "max_temperature_c": 85,
+    "envelope_source": "https://www.ti.com/product/OPA1641",
+    "envelope_note": "Conservative product-page supply and specified temperature range."
+  },
+  "2N3904": {
+    "path": "2N3904.lib",
+    "spice_name": "Q2n3904",
+    "kind": "BJT",
+    "pins": [
+      "collector",
+      "base",
+      "emitter"
+    ],
+    "channels": 1,
+    "source_url": "https://www.onsemi.com/pub/Collateral/2N3904.LIB",
+    "sha256": "5608c109b8d68d57798557991cee506661d031916f589325fad5ed10d82ccbf7",
+    "version": "onsemi MODPEX 2001-08-07",
+    "min_supply_span_v": 0,
+    "max_supply_span_v": 30,
+    "min_temperature_c": -40,
+    "max_temperature_c": 85,
+    "envelope_source": "https://www.onsemi.com/download/data-sheet/pdf/2n3904-d.pdf",
+    "envelope_note": "Conservative harness envelope; this is not a complete device stress or thermal validation."
+  },
+  "2N3906": {
+    "path": "2N3906.lib",
+    "spice_name": "q2n3906",
+    "kind": "BJT",
+    "pins": [
+      "collector",
+      "base",
+      "emitter"
+    ],
+    "channels": 1,
+    "source_url": "https://www.onsemi.com/pub/Collateral/2N3906.LIB",
+    "sha256": "8d53e9c478e2f6c8c19fadcea97a01d0ed3e3ea7af3299160d1f550ba3080b5b",
+    "version": "onsemi MODPEX 2001-08-07",
+    "min_supply_span_v": 0,
+    "max_supply_span_v": 30,
+    "min_temperature_c": -40,
+    "max_temperature_c": 85,
+    "envelope_source": "https://www.onsemi.com/download/data-sheet/pdf/2n3906-d.pdf",
+    "envelope_note": "Conservative harness envelope; this is not a complete device stress or thermal validation."
+  },
+  "1N4148": {
+    "path": "1N4148.lib",
+    "spice_name": "D1N4148/TEMP",
+    "kind": "DIODE",
+    "pins": [
+      "anode",
+      "cathode"
+    ],
+    "channels": 1,
+    "source_url": "https://ngspice.sourceforge.io/model-parameters/basic_models.7z",
+    "sha256": "a47ec7ee73ab4459fff96503b6a8d0227dc295e9018fe55a884af129f2163b51",
+    "version": "ngspice basic_models collection",
+    "archive_entry": "basic_models/diodes/1N4148.mod",
+    "archive_sha256": "d0f78c38c3a396bba47f76a9b7637cf6325a993f9925472d8712fca3f33e9608"
+  },
+  "LM741": {
+    "path": "LM741.lib",
+    "spice_name": "LM741",
+    "kind": "OPAMP",
+    "pins": [
+      "noninverting",
+      "inverting",
+      "positive_supply",
+      "negative_supply",
+      "output"
+    ],
+    "channels": 1,
+    "source_url": "https://www.ti.com/lit/zip/snom211",
+    "sha256": "f58370983c8bd22bf6a59ddd05a1dd492f1a0ea60f673ffd460a356da5e693dc",
+    "version": "TI SNOM211B, archive 2022-09-22; original National Semiconductor macromodel",
+    "archive_entry": "lm741.lib",
+    "archive_sha256": "cdf5544ccf12a2957750a4c57c15b684528315e61488a85e99b96f1771f6d136",
+    "min_supply_span_v": 20,
+    "max_supply_span_v": 44,
+    "min_temperature_c": 0,
+    "max_temperature_c": 70,
+    "envelope_source": "https://www.ti.com/lit/ds/symlink/lm741.pdf",
+    "envelope_note": "Conservative harness envelope: Rev. D section 6.3 recommends dual supplies of \u00b110 to \u00b122 V for LM741; 0\u201370 \u00b0C is the common LM741/LM741C specified temperature intersection. Supply-span checks alone do not validate common-mode, rail symmetry, output swing, thermal stress, or model fidelity.",
+    "supply_feedthrough_characterization": "unvalidated",
+    "supply_feedthrough_note": "Original macromodel contains supply references and a common-mode stage, but no separately characterized PSRR block or stated rail-noise accuracy. Rail-to-output results describe this macromodel only; do not treat them as verified device PSRR or compare them to datasheet DC supply rejection without independent validation.",
+    "model_psrr_validated": false
+  }
+}

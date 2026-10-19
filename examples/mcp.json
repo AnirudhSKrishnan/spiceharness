@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "spiceharness": {
+      "type": "stdio",
+      "command": "/path/to/spiceharness/scripts/serve_mcp.sh",
+      "args": []
+    }
+  }
+}

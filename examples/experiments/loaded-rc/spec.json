@@ -1,0 +1,166 @@
+{
+  "sources": [
+    {
+      "ref": "signal",
+      "kind": "V",
+      "nodes": [
+        "source",
+        "0"
+      ],
+      "dc": 1.0,
+      "waveform": "sine",
+      "amplitude": 0.5,
+      "frequency_hz": 1000.0,
+      "delay_s": 0.0,
+      "rise_s": 1e-06,
+      "fall_s": 1e-06,
+      "width_s": 0.0005,
+      "period_s": 0.001
+    }
+  ],
+  "loads": [
+    {
+      "ref": "RSOURCE",
+      "kind": "R",
+      "nodes": [
+        "source",
+        "in"
+      ],
+      "value": 50.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RLOAD",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "0"
+      ],
+      "value": 10000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    }
+  ],
+  "probes": [
+    {
+      "name": "out",
+      "positive": "out",
+      "negative": "0"
+    }
+  ],
+  "sweep": {
+    "start_hz": 10.0,
+    "stop_hz": 100000.0,
+    "points_per_decade": 200
+  },
+  "transient": null,
+  "measurements": [
+    {
+      "name": "gain_1khz",
+      "operator": "ac_magnitude",
+      "probe": "out",
+      "source": "signal",
+      "frequency_hz": 1000.0,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "cutoff_hz",
+      "operator": "ac_cutoff_3db",
+      "probe": "out",
+      "source": "signal",
+      "frequency_hz": null,
+      "band_start_hz": 10.0,
+      "band_stop_hz": 100000.0,
+      "reference_frequency_hz": 10.0,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    },
+    {
+      "name": "dc_output_v",
+      "operator": "op_voltage",
+      "probe": "out",
+      "source": null,
+      "frequency_hz": null,
+      "band_start_hz": null,
+      "band_stop_hz": null,
+      "reference_frequency_hz": null,
+      "crossing": "falling",
+      "fundamental_hz": null,
+      "harmonics": 10
+    }
+  ],
+  "requirements": [
+    {
+      "metric": "gain_1khz",
+      "minimum": 0.76,
+      "maximum": 0.8
+    },
+    {
+      "metric": "cutoff_hz",
+      "minimum": 1600.0,
+      "maximum": 1750.0
+    }
+  ],
+  "baseline": {
+    "name": "loaded_rc_reference",
+    "components": [
+      {
+        "ref": "R1",
+        "kind": "R",
+        "nodes": [
+          "in",
+          "out"
+        ],
+        "value": 1000.0,
+        "model": null,
+        "package": null,
+        "role": "signal",
+        "parameters": {},
+        "series_resistance_ohm": 0.0
+      },
+      {
+        "ref": "C1",
+        "kind": "C",
+        "nodes": [
+          "out",
+          "0"
+        ],
+        "value": 1e-07,
+        "model": null,
+        "package": null,
+        "role": "signal",
+        "parameters": {},
+        "series_resistance_ohm": 0.2
+      }
+    ],
+    "connections": []
+  },
+  "protected_refs": [],
+  "redesign_ports": [
+    "in",
+    "out",
+    "0"
+  ],
+  "allowed_models": [],
+  "noise_sources": [],
+  "temperature_c": 27.0,
+  "provenance": [],
+  "assumptions": [
+    "Ordinary RC circuit with fixed50\u03a9 source and10k\u03a9 load; capacitor ESR0.2\u03a9. Nominal parts, no tolerance or device-noise claim.",
+    "Analytical oracle: H(f)=Zshunt/(1050\u03a9+Zshunt), Zshunt=10k\u03a9 parallel(0.2\u03a9+1/(j2\u03c0f100nF)); checked against saved curves by run_lab4_study.py."
+  ],
+  "numerical_policy": "general-experiment-v1;reltol=1e-4;gear;log-frequency-interpolation;sampled-extrema;independent-PSD"
+}

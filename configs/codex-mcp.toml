@@ -1,0 +1,5 @@
+# Copy this entry into Codex config, or use the documented codex mcp add command.
+[mcp_servers.spiceharness]
+command = "/path/to/spiceharness/scripts/serve_mcp.sh"
+startup_timeout_sec = 15
+tool_timeout_sec = 60

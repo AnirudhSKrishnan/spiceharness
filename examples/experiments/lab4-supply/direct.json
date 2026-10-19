@@ -1,0 +1,60 @@
+{
+  "name": "direct",
+  "components": [
+    {
+      "ref": "U1",
+      "kind": "OPAMP",
+      "nodes": [
+        "input",
+        "inv",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "value": null,
+      "model": "LM741",
+      "package": "U1",
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RF",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 2000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RG",
+      "kind": "R",
+      "nodes": [
+        "inv",
+        "0"
+      ],
+      "value": 1000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    }
+  ],
+  "connections": [
+    [
+      "pfeed",
+      "vcc"
+    ],
+    [
+      "nfeed",
+      "vee"
+    ]
+  ]
+}

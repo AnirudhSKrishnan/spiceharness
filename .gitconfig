@@ -1,0 +1,9 @@
+# Repository defaults. Activate with: git config --local include.path ../.gitconfig
+[pull]
+	ff = only
+[fetch]
+	prune = true
+[push]
+	default = simple
+[diff]
+	algorithm = histogram

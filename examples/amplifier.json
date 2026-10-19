@@ -1,0 +1,14 @@
+{
+  "topology": "noninverting_amplifier",
+  "gain": 10,
+  "gain_tolerance": 0.05,
+  "supply_positive_v": 12,
+  "supply_negative_v": -12,
+  "input_amplitude_v": 0.1,
+  "input_frequency_hz": 1000,
+  "load_ohm": 10000,
+  "source_resistance_ohm": 50,
+  "max_thd": 0.03,
+  "max_output_offset_v": 0.1,
+  "opamp_model": "LM358"
+}

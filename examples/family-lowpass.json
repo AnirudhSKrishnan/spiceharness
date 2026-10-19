@@ -1,0 +1,17 @@
+{
+  "topology": "lowpass",
+  "gain": 2,
+  "gain_tolerance": 0.1,
+  "cutoff_hz": 1000,
+  "cutoff_tolerance": 0.15,
+  "stopband_frequency_hz": 10000,
+  "max_stopband_gain": 0.055,
+  "supply_positive_v": 12,
+  "supply_negative_v": -12,
+  "input_amplitude_v": 0.1,
+  "input_frequency_hz": 10,
+  "load_ohm": 10000,
+  "source_resistance_ohm": 50,
+  "max_thd": 0.03,
+  "opamp_model": "LM358"
+}

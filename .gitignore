@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.env
+.env.*
+!.env.example
+.spiceharness/
+runs/
+.DS_Store
+# Vendor models are fetched locally; catalog and source notices are distributed.
+src/spiceharness/data/models/*.lib
+dist/
+.coverage
+htmlcov/
+.claude/
+CLAUDE.local.md

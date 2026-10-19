@@ -1,0 +1,135 @@
+{
+  "name": "original_t",
+  "components": [
+    {
+      "ref": "U1",
+      "kind": "OPAMP",
+      "nodes": [
+        "input",
+        "inv",
+        "vcc",
+        "vee",
+        "out"
+      ],
+      "value": null,
+      "model": "LM741",
+      "package": "U1",
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RF",
+      "kind": "R",
+      "nodes": [
+        "out",
+        "inv"
+      ],
+      "value": 2000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "RG",
+      "kind": "R",
+      "nodes": [
+        "inv",
+        "0"
+      ],
+      "value": 1000.0,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.0
+    },
+    {
+      "ref": "PL1",
+      "kind": "L",
+      "nodes": [
+        "pfeed",
+        "pmid"
+      ],
+      "value": 0.00795,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 1.0
+    },
+    {
+      "ref": "PL2",
+      "kind": "L",
+      "nodes": [
+        "pmid",
+        "vcc"
+      ],
+      "value": 7.95e-6,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 1.0
+    },
+    {
+      "ref": "PC1",
+      "kind": "C",
+      "nodes": [
+        "pmid",
+        "0"
+      ],
+      "value": 6.4e-9,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.1
+    },
+    {
+      "ref": "NL1",
+      "kind": "L",
+      "nodes": [
+        "nfeed",
+        "nmid"
+      ],
+      "value": 0.00795,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 1.0
+    },
+    {
+      "ref": "NL2",
+      "kind": "L",
+      "nodes": [
+        "nmid",
+        "vee"
+      ],
+      "value": 7.95e-6,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 1.0
+    },
+    {
+      "ref": "NC1",
+      "kind": "C",
+      "nodes": [
+        "nmid",
+        "0"
+      ],
+      "value": 6.4e-9,
+      "model": null,
+      "package": null,
+      "role": "signal",
+      "parameters": {},
+      "series_resistance_ohm": 0.1
+    }
+  ],
+  "connections": []
+}
